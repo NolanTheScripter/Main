@@ -28,8 +28,7 @@ local function getNotificationContainer(screenGui)
         layout.Padding = UDim.new(0, 5)
     end
 
-    local viewportSize = workspace.CurrentCamera.ViewportSize
-    notificationContainer.Position = UDim2.new(0, viewportSize.X - 310, 0, 0)
+    notificationContainer.Position = UDim2.new(1, -10, 0, 0)
 
     return notificationContainer
 end
@@ -40,6 +39,11 @@ local function createNotificationFrame(notificationType, title, description)
     notificationFrame.Size = UDim2.new(0, 300, 0, 100)
     notificationFrame.BorderSizePixel = 0
     notificationFrame.BackgroundTransparency = 0.2
+    notificationFrame.ClipsDescendants = true
+
+    -- Rounded corners
+    local corner = Instance.new("UICorner", notificationFrame)
+    corner.CornerRadius = UDim.new(0, 10)
 
     local icon = Instance.new("ImageLabel", notificationFrame)
     icon.Image = notificationType.Icon
@@ -69,6 +73,32 @@ local function createNotificationFrame(notificationType, title, description)
     descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
     descriptionLabel.TextYAlignment = Enum.TextYAlignment.Top
 
+    -- Close button
+    local closeButton = Instance.new("TextButton", notificationFrame)
+    closeButton.Text = "✖"
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -40, 0, 5)
+    closeButton.BackgroundColor3 = Color3.new(1, 0, 0)
+    closeButton.TextColor3 = Color3.new(1, 1, 1)
+    closeButton.BorderSizePixel = 0
+    closeButton.AutoButtonColor = true
+
+    -- Rounded corners for the button
+    local buttonCorner = Instance.new("UICorner", closeButton)
+    buttonCorner.CornerRadius = UDim.new(0, 15)
+
+    closeButton.MouseEnter:Connect(function()
+        closeButton.BackgroundColor3 = Color3.new(0.8, 0, 0) -- Darker red
+    end)
+
+    closeButton.MouseLeave:Connect(function()
+        closeButton.BackgroundColor3 = Color3.new(1, 0, 0) -- Original red
+    end)
+
+    closeButton.MouseButton1Click:Connect(function()
+        notificationFrame:Destroy()
+    end)
+
     return notificationFrame
 end
 
@@ -80,36 +110,48 @@ function Notification:Notify(Type, Title, Description, Duration)
     end
 
     local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    local screenGui = playerGui:FindFirstChild("ScreenGui") or Instance.new("ScreenGui", playerGui)
+    local screenGui = playerGui:FindFirstChild("ScreenGui")
+    if not screenGui then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Parent = playerGui
+    end
     
     local notificationContainer = getNotificationContainer(screenGui)
     
     local notificationFrame = createNotificationFrame(notificationType, Title, Description)
     notificationFrame.Parent = notificationContainer
 
-    local sound = Instance.new("Sound", notificationFrame)
-    sound.SoundId = "rbxassetid://123456789"
-    sound:Play()
-
-    notificationFrame.Visible = true
-    notificationFrame.Position = UDim2.new(1, 310, 0, 0)
+    -- Initial animation: fade in and scale up
+    notificationFrame:TweenSizeAndPosition(
+        UDim2.new(0, 300, 0, 100),
+        UDim2.new(1, -10, 0, 0),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Bounce,
+        0.5,
+        true
+    )
     notificationFrame:TweenPosition(
-        UDim2.new(1, -310, 0, 0),
+        UDim2.new(1, -10, 0, 0),
         Enum.EasingDirection.Out,
         Enum.EasingStyle.Bounce,
         0.5,
         true
     )
 
-    notificationFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            notificationFrame:Destroy()
-        end
-    end)
+    -- Fade in effect
+    notificationFrame.BackgroundTransparency = 1
+    notificationFrame:TweenSize(
+        UDim2.new(0, 300, 0, 100),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Bounce,
+        0.5,
+        true
+    )
 
     delay(Duration or 5, function()
-        notificationFrame:TweenPosition(
-            UDim2.new(1, 310, 0, 0),
+        -- Fade out and scale down
+        notificationFrame:TweenSize(
+            UDim2.new(0, 0, 0, 0),
             Enum.EasingDirection.In,
             Enum.EasingStyle.Quad,
             0.5,
