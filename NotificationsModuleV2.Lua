@@ -144,9 +144,10 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
         notificationFrame.Parent = notificationContainer
 
         -- Initial animation: slide in and scale up
+        local targetSize = notificationFrame.Size
+        notificationFrame.Size = UDim2.new(0, 0, targetSize.Y.Scale, targetSize.Y.Offset) -- Start with zero width
         notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
-        notificationFrame.Size = UDim2.new(0, 0, notificationFrame.Size.Y.Scale, notificationFrame.Size.Y.Offset) -- Start with zero width
-        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = notificationFrame.Size, BackgroundTransparency = 0})
+        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = targetSize, BackgroundTransparency = 0})
         slideInTween:Play()
 
         delay(Duration or 5, function()
