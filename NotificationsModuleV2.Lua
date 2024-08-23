@@ -42,7 +42,7 @@ local function calculateYSize(title, description)
     local titleSize = TextService:GetTextSize(title, 24, Enum.Font.GothamBold, Vector2.new(300, math.huge))
     local descriptionSize = TextService:GetTextSize(description, 18, Enum.Font.Gotham, Vector2.new(300, math.huge))
     local totalHeight = titleSize.Y + descriptionSize.Y + 40 -- Adding padding
-    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(1, -50, 0, titleSize.Y), UDim2.new(1, -10, 0, descriptionSize.Y)
+    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(1, 0, 0, titleSize.Y), UDim2.new(1, 0, 0, descriptionSize.Y)
 end
 
 local function createNotificationFrame(notificationType, title, description, priority)
@@ -82,7 +82,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     local descriptionLabel = Instance.new("TextLabel", notificationFrame)
     descriptionLabel.Text = description
     descriptionLabel.Size = descriptionSize
-    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y + 10)
+    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y.Offset + 10)
     descriptionLabel.BackgroundTransparency = 1
     descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
@@ -145,7 +145,7 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
 
         -- Initial animation: slide in and scale up
         local targetSize = notificationFrame.Size
-        notificationFrame.Size = UDim2.new(0, 0, targetSize.Y.Scale, targetSize.Y.Offset) -- Start with zero width
+        notificationFrame.Size = UDim2.new(0, 0, 0, targetSize.Y.Offset) -- Start with zero width
         notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
         local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = targetSize, BackgroundTransparency = 0})
         slideInTween:Play()
