@@ -1,4 +1,5 @@
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 
 local Notification = {}
 
@@ -37,10 +38,19 @@ local function getNotificationContainer(screenGui)
     return notificationContainer
 end
 
+local function calculateYSize(title, description)
+    local titleSize = TextService:GetTextSize(title, 24, Enum.Font.GothamBold, Vector2.new(300, math.huge))
+    local descriptionSize = TextService:GetTextSize(description, 18, Enum.Font.Gotham, Vector2.new(300, math.huge))
+    local totalHeight = titleSize.Y + descriptionSize.Y + 40 -- Adding padding
+    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(1, -50, 0, titleSize.Y), UDim2.new(1, -10, 0, descriptionSize.Y)
+end
+
 local function createNotificationFrame(notificationType, title, description, priority)
+    local frameSize, titleSize, descriptionSize = calculateYSize(title, description)
+
     local notificationFrame = Instance.new("Frame")
     notificationFrame.BackgroundColor3 = notificationType.Color
-    notificationFrame.Size = UDim2.new(1, 0, 0.2, 0)
+    notificationFrame.Size = frameSize
     notificationFrame.BorderSizePixel = 0
     notificationFrame.BackgroundTransparency = 1
     notificationFrame.ClipsDescendants = true
@@ -49,15 +59,6 @@ local function createNotificationFrame(notificationType, title, description, pri
     -- UI Enhancements
     local corner = Instance.new("UICorner", notificationFrame)
     corner.CornerRadius = UDim.new(0, 12)
-
-    local shadow = Instance.new("ImageLabel", notificationFrame)
-    shadow.Size = UDim2.new(1, 10, 1, 10)
-    shadow.Position = UDim2.new(0, -5, 0, -5)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageTransparency = 0.5
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 
     local gradient = Instance.new("UIGradient", notificationFrame)
     gradient.Color = ColorSequence.new(notificationType.Color, Color3.new(1, 1, 1))
@@ -70,7 +71,7 @@ local function createNotificationFrame(notificationType, title, description, pri
 
     local titleLabel = Instance.new("TextLabel", notificationFrame)
     titleLabel.Text = title
-    titleLabel.Size = UDim2.new(1, -50, 0.3, 0)
+    titleLabel.Size = titleSize
     titleLabel.Position = UDim2.new(0, 50, 0, 5)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.GothamBold
@@ -80,8 +81,8 @@ local function createNotificationFrame(notificationType, title, description, pri
 
     local descriptionLabel = Instance.new("TextLabel", notificationFrame)
     descriptionLabel.Text = description
-    descriptionLabel.Size = UDim2.new(1, -10, 0.7, -30)
-    descriptionLabel.Position = UDim2.new(0, 10, 0.3, 5)
+    descriptionLabel.Size = descriptionSize
+    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y + 10)
     descriptionLabel.BackgroundTransparency = 1
     descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
@@ -144,8 +145,8 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
 
         -- Initial animation: slide in and scale up
         notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
-        notificationFrame.Size = UDim2.new(0, 0, 0.2, 0) -- Start with zero width
-        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = UDim2.new(1, 0, 0.2, 0), BackgroundTransparency = 0})
+        notificationFrame.Size = UDim2.new(0, 0, notificationFrame.Size.Y.Scale, notificationFrame.Size.Y.Offset) -- Start with zero width
+        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = notificationFrame.Size, BackgroundTransparency = 0})
         slideInTween:Play()
 
         delay(Duration or 5, function()
