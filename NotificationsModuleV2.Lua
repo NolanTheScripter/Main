@@ -1,13 +1,13 @@
 local Notification = {}
 
 Notification.Type = {
-    ["Success"] = {Color = Color3.fromRGB(0, 125, 0), Icon = "rbxassetid://12345678"},
-    ["Error"] = {Color = Color3.fromRGB(125, 0, 0), Icon = "rbxassetid://87654321"},
-    ["Info"] = {Color = Color3.fromRGB(0, 0, 125), Icon = "rbxassetid://23456789"},
-    ["Warning"] = {Color = Color3.fromRGB(255, 255, 0), Icon = "rbxassetid://98765432"},
-    ["Debug"] = {Color = Color3.fromRGB(0, 255, 255), Icon = "rbxassetid://34567890"},
-    ["Critical"] = {Color = Color3.fromRGB(255, 0, 0), Icon = "rbxassetid://09876543"},
-    ["Notification"] = {Color = Color3.fromRGB(0, 0, 0), Icon = "rbxassetid://45678901"}
+    ["Success"] = {Color = Color3.fromRGB(0, 125, 0), Icon = "rbxassetid://6031071053"},
+    ["Error"] = {Color = Color3.fromRGB(125, 0, 0), Icon = "rbxassetid://6031071050"},
+    ["Info"] = {Color = Color3.fromRGB(0, 0, 125), Icon = "rbxassetid://6031071051"},
+    ["Warning"] = {Color = Color3.fromRGB(255, 255, 0), Icon = "rbxassetid://6031071052"},
+    ["Debug"] = {Color = Color3.fromRGB(0, 255, 255), Icon = "rbxassetid://6031071054"},
+    ["Critical"] = {Color = Color3.fromRGB(255, 0, 0), Icon = "rbxassetid://6031071055"},
+    ["Notification"] = {Color = Color3.fromRGB(0, 0, 0), Icon = "rbxassetid://6031071056"}
 }
 
 local function getNotificationContainer(screenGui)
@@ -16,7 +16,6 @@ local function getNotificationContainer(screenGui)
         notificationContainer = Instance.new("Frame")
         notificationContainer.Name = "NotificationContainer"
         notificationContainer.Size = UDim2.new(0, 300, 1, 0)
-        notificationContainer.Position = UDim2.new(1, -310, 0, 0)
         notificationContainer.AnchorPoint = Vector2.new(1, 0)
         notificationContainer.BackgroundTransparency = 1
         notificationContainer.Parent = screenGui
@@ -28,6 +27,10 @@ local function getNotificationContainer(screenGui)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Padding = UDim.new(0, 5)
     end
+
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    notificationContainer.Position = UDim2.new(0, viewportSize.X - 310, 0, 0)
+
     return notificationContainer
 end
 
@@ -49,7 +52,7 @@ local function createNotificationFrame(notificationType, title, description)
     titleLabel.Size = UDim2.new(1, -40, 0.3, 0)
     titleLabel.Position = UDim2.new(0, 35, 0, 5)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 24
     titleLabel.TextColor3 = Color3.new(1, 1, 1)
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -59,7 +62,7 @@ local function createNotificationFrame(notificationType, title, description)
     descriptionLabel.Size = UDim2.new(1, -10, 0.7, -30)
     descriptionLabel.Position = UDim2.new(0, 5, 0.3, 5)
     descriptionLabel.BackgroundTransparency = 1
-    descriptionLabel.Font = Enum.Font.SourceSans
+    descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
     descriptionLabel.TextColor3 = Color3.new(1, 1, 1)
     descriptionLabel.TextWrapped = true
