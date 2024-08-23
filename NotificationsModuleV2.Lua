@@ -38,7 +38,7 @@ local function createNotificationFrame(notificationType, title, description)
     notificationFrame.BackgroundColor3 = notificationType.Color
     notificationFrame.Size = UDim2.new(0, 300, 0, 100)
     notificationFrame.BorderSizePixel = 0
-    notificationFrame.BackgroundTransparency = 0.2
+    notificationFrame.BackgroundTransparency = 1
     notificationFrame.ClipsDescendants = true
 
     -- Rounded corners
@@ -122,10 +122,27 @@ function Notification:Notify(Type, Title, Description, Duration)
         local notificationFrame = createNotificationFrame(notificationType, Title, Description)
         notificationFrame.Parent = notificationContainer
 
-        -- Initial animation: fade in and scale up
+        -- Initial animation: fade in
         notificationFrame.Position = UDim2.new(1, 310, 0, 0)
         notificationFrame:TweenPosition(
             UDim2.new(1, -10, 0, 0),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Bounce,
+            0.5,
+            true
+        )
+        notificationFrame:TweenSize(
+            UDim2.new(0, 300, 0, 100),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Bounce,
+            0.5,
+            true
+        )
+
+        -- Fade in effect
+        notificationFrame.BackgroundTransparency = 1
+        notificationFrame:TweenSize(
+            UDim2.new(0, 300, 0, 100),
             Enum.EasingDirection.Out,
             Enum.EasingStyle.Bounce,
             0.5,
