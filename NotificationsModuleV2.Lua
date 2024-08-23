@@ -69,22 +69,19 @@ local function createNotificationFrame(notificationType, title, description)
     return notificationFrame
 end
 
-function Notification:Notify(Type, Title, Description, Duration, UserData)
+function Notification:Notify(Type, Title, Description, Duration)
     local notificationType = self.Type[Type]
     
     if not notificationType then
         error("Invalid notification type: " .. tostring(Type))
     end
 
-    local personalizedTitle = Title:gsub("{name}", UserData.Name or "User")
-    local personalizedDescription = Description:gsub("{location}", UserData.Location or "your area")
-
     local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
     local screenGui = playerGui:FindFirstChild("ScreenGui") or Instance.new("ScreenGui", playerGui)
     
     local notificationContainer = getNotificationContainer(screenGui)
     
-    local notificationFrame = createNotificationFrame(notificationType, personalizedTitle, personalizedDescription)
+    local notificationFrame = createNotificationFrame(notificationType, Title, Description)
     notificationFrame.Parent = notificationContainer
 
     local sound = Instance.new("Sound", notificationFrame)
