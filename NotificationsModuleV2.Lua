@@ -1,13 +1,18 @@
+local TweenService = game:GetService("TweenService")
+
 local Notification = {}
 
 Notification.Type = {
-    ["Success"] = {Color = Color3.fromRGB(0, 125, 0), Icon = "rbxassetid://6031071053"},
-    ["Error"] = {Color = Color3.fromRGB(125, 0, 0), Icon = "rbxassetid://6031071050"},
-    ["Info"] = {Color = Color3.fromRGB(0, 0, 125), Icon = "rbxassetid://6031071051"},
-    ["Warning"] = {Color = Color3.fromRGB(255, 255, 0), Icon = "rbxassetid://6031071052"},
+    ["Success"] = {Color = Color3.fromRGB(40, 167, 69), Icon = "rbxassetid://6031071053"},
+    ["Error"] = {Color = Color3.fromRGB(220, 53, 69), Icon = "rbxassetid://6031071050"},
+    ["Info"] = {Color = Color3.fromRGB(45, 125, 255), Icon = "rbxassetid://6031071051"},
+    ["Warning"] = {Color = Color3.fromRGB(255, 193, 7), Icon = "rbxassetid://6031071052"},
     ["Debug"] = {Color = Color3.fromRGB(0, 255, 255), Icon = "rbxassetid://6031071054"},
     ["Critical"] = {Color = Color3.fromRGB(255, 0, 0), Icon = "rbxassetid://6031071055"},
-    ["Notification"] = {Color = Color3.fromRGB(0, 0, 0), Icon = "rbxassetid://6031071056"}
+    ["Notification"] = {Color = Color3.fromRGB(108, 117, 125), Icon = "rbxassetid://6031071056"},
+    ["Achievement"] = {Color = Color3.fromRGB(255, 215, 0), Icon = "rbxassetid://6031071057"},
+    ["Update"] = {Color = Color3.fromRGB(0, 123, 255), Icon = "rbxassetid://6031071058"},
+    ["Reminder"] = {Color = Color3.fromRGB(255, 87, 34), Icon = "rbxassetid://6031071059"}
 }
 
 local function getNotificationContainer(screenGui)
@@ -17,6 +22,7 @@ local function getNotificationContainer(screenGui)
         notificationContainer.Name = "NotificationContainer"
         notificationContainer.Size = UDim2.new(0, 300, 1, 0)
         notificationContainer.AnchorPoint = Vector2.new(1, 0)
+        notificationContainer.Position = UDim2.new(1, -10, 0, 0)
         notificationContainer.BackgroundTransparency = 1
         notificationContainer.Parent = screenGui
 
@@ -28,18 +34,17 @@ local function getNotificationContainer(screenGui)
         layout.Padding = UDim.new(0, 5)
     end
 
-    notificationContainer.Position = UDim2.new(1, -10, 0, 0)
-
     return notificationContainer
 end
 
-local function createNotificationFrame(notificationType, title, description)
+local function createNotificationFrame(notificationType, title, description, priority)
     local notificationFrame = Instance.new("Frame")
     notificationFrame.BackgroundColor3 = notificationType.Color
     notificationFrame.Size = UDim2.new(0, 300, 0, 100)
     notificationFrame.BorderSizePixel = 0
     notificationFrame.BackgroundTransparency = 1
     notificationFrame.ClipsDescendants = true
+    notificationFrame.LayoutOrder = priority
 
     -- Rounded corners
     local corner = Instance.new("UICorner", notificationFrame)
@@ -102,7 +107,7 @@ local function createNotificationFrame(notificationType, title, description)
     return notificationFrame
 end
 
-function Notification:Notify(Type, Title, Description, Duration)
+function Notification:Notify(Type, Title, Description, Duration, Priority)
     local success, err = pcall(function()
         local notificationType = self.Type[Type]
         
@@ -111,56 +116,31 @@ function Notification:Notify(Type, Title, Description, Duration)
         end
 
         local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-        local screenGui = playerGui:FindFirstChild("ScreenGui")
+        local screenGui = playerGui:FindFirstChild("NotificationGui")
         if not screenGui then
             screenGui = Instance.new("ScreenGui")
+            screenGui.Name = "NotificationGui"
+            screenGui.ResetOnSpawn = false
             screenGui.Parent = playerGui
         end
         
         local notificationContainer = getNotificationContainer(screenGui)
         
-        local notificationFrame = createNotificationFrame(notificationType, Title, Description)
+        local notificationFrame = createNotificationFrame(notificationType, Title, Description, Priority or 1)
         notificationFrame.Parent = notificationContainer
 
-        -- Initial animation: fade in
-        notificationFrame.Position = UDim2.new(1, 310, 0, 0)
-        notificationFrame:TweenPosition(
-            UDim2.new(1, -10, 0, 0),
-            Enum.EasingDirection.Out,
-            Enum.EasingStyle.Bounce,
-            0.5,
-            true
-        )
-        notificationFrame:TweenSize(
-            UDim2.new(0, 300, 0, 100),
-            Enum.EasingDirection.Out,
-            Enum.EasingStyle.Bounce,
-            0.5,
-            true
-        )
-
-        -- Fade in effect
-        notificationFrame.BackgroundTransparency = 1
-        notificationFrame:TweenSize(
-            UDim2.new(0, 300, 0, 100),
-            Enum.EasingDirection.Out,
-            Enum.EasingStyle.Bounce,
-            0.5,
-            true
-        )
+        -- Initial animation: slide in and fade in
+        notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
+        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 0})
+        slideInTween:Play()
 
         delay(Duration or 5, function()
-            -- Fade out and scale down
-            notificationFrame:TweenPosition(
-                UDim2.new(1, 310, 0, 0),
-                Enum.EasingDirection.In,
-                Enum.EasingStyle.Quad,
-                0.5,
-                true,
-                function()
-                    notificationFrame:Destroy()
-                end
-            )
+            -- Fade out and slide out
+            local slideOutTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 1})
+            slideOutTween:Play()
+            slideOutTween.Completed:Connect(function()
+                notificationFrame:Destroy()
+            end)
         end)
     end)
 
@@ -168,5 +148,8 @@ function Notification:Notify(Type, Title, Description, Duration)
         warn("Notification error: " .. tostring(err))
     end
 end
+
+-- Example notifications
+
 
 return Notification
