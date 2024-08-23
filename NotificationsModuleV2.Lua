@@ -3,13 +3,13 @@ local TweenService = game:GetService("TweenService")
 local Notification = {}
 
 Notification.Type = {
-    ["Success"] = {Color = Color3.fromRGB(40, 167, 69), Icon = "rbxassetid://6031071053"},
-    ["Error"] = {Color = Color3.fromRGB(220, 53, 69), Icon = "rbxassetid://6031071050"},
-    ["Info"] = {Color = Color3.fromRGB(45, 125, 255), Icon = "rbxassetid://6031071051"},
-    ["Warning"] = {Color = Color3.fromRGB(255, 193, 7), Icon = "rbxassetid://6031071052"},
-    ["Debug"] = {Color = Color3.fromRGB(0, 255, 255), Icon = "rbxassetid://6031071054"},
+    ["Success"] = {Color = Color3.fromRGB(76, 175, 80), Icon = "rbxassetid://6031071053"},
+    ["Error"] = {Color = Color3.fromRGB(244, 67, 54), Icon = "rbxassetid://6031071050"},
+    ["Info"] = {Color = Color3.fromRGB(33, 150, 243), Icon = "rbxassetid://6031071051"},
+    ["Warning"] = {Color = Color3.fromRGB(255, 152, 0), Icon = "rbxassetid://6031071052"},
+    ["Debug"] = {Color = Color3.fromRGB(0, 188, 212), Icon = "rbxassetid://6031071054"},
     ["Critical"] = {Color = Color3.fromRGB(255, 0, 0), Icon = "rbxassetid://6031071055"},
-    ["Notification"] = {Color = Color3.fromRGB(108, 117, 125), Icon = "rbxassetid://6031071056"},
+    ["Notification"] = {Color = Color3.fromRGB(158, 158, 158), Icon = "rbxassetid://6031071056"},
     ["Achievement"] = {Color = Color3.fromRGB(255, 215, 0), Icon = "rbxassetid://6031071057"},
     ["Update"] = {Color = Color3.fromRGB(0, 123, 255), Icon = "rbxassetid://6031071058"},
     ["Reminder"] = {Color = Color3.fromRGB(255, 87, 34), Icon = "rbxassetid://6031071059"}
@@ -59,16 +59,19 @@ local function createNotificationFrame(notificationType, title, description, pri
     shadow.ScaleType = Enum.ScaleType.Slice
     shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 
+    local gradient = Instance.new("UIGradient", notificationFrame)
+    gradient.Color = ColorSequence.new(notificationType.Color, Color3.new(1, 1, 1))
+
     local icon = Instance.new("ImageLabel", notificationFrame)
     icon.Image = notificationType.Icon
-    icon.Size = UDim2.new(0, 24, 0, 24)
-    icon.Position = UDim2.new(0, 5, 0, 5)
+    icon.Size = UDim2.new(0, 30, 0, 30)
+    icon.Position = UDim2.new(0, 10, 0, 10)
     icon.BackgroundTransparency = 1
 
     local titleLabel = Instance.new("TextLabel", notificationFrame)
     titleLabel.Text = title
-    titleLabel.Size = UDim2.new(1, -40, 0.3, 0)
-    titleLabel.Position = UDim2.new(0, 35, 0, 5)
+    titleLabel.Size = UDim2.new(1, -50, 0.3, 0)
+    titleLabel.Position = UDim2.new(0, 50, 0, 5)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 24
@@ -78,7 +81,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     local descriptionLabel = Instance.new("TextLabel", notificationFrame)
     descriptionLabel.Text = description
     descriptionLabel.Size = UDim2.new(1, -10, 0.7, -30)
-    descriptionLabel.Position = UDim2.new(0, 5, 0.3, 5)
+    descriptionLabel.Position = UDim2.new(0, 10, 0.3, 5)
     descriptionLabel.BackgroundTransparency = 1
     descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
@@ -87,7 +90,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
     descriptionLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-    -- Close button
+    -- Interactive Close button with hover effects
     local closeButton = Instance.new("TextButton", notificationFrame)
     closeButton.Text = "✖"
     closeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -96,6 +99,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     closeButton.TextColor3 = Color3.new(1, 1, 1)
     closeButton.BorderSizePixel = 0
     closeButton.AutoButtonColor = true
+    closeButton.TextScaled = true
 
     -- Rounded corners for the button
     local buttonCorner = Instance.new("UICorner", closeButton)
@@ -138,14 +142,15 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
         local notificationFrame = createNotificationFrame(notificationType, Title, Description, Priority or 1)
         notificationFrame.Parent = notificationContainer
 
-        -- Initial animation: slide in and fade in
+        -- Initial animation: slide in and scale up
         notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
-        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 0})
+        notificationFrame.Size = UDim2.new(0, 0, 0.2, 0) -- Start with zero width
+        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = UDim2.new(1, 0, 0.2, 0), BackgroundTransparency = 0})
         slideInTween:Play()
 
         delay(Duration or 5, function()
             -- Fade out and slide out
-            local slideOutTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 1})
+            local slideOutTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 1})
             slideOutTween:Play()
             slideOutTween.Completed:Connect(function()
                 notificationFrame:Destroy()
@@ -157,20 +162,5 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
         warn("Notification error: " .. tostring(err))
     end
 end
-
--- Example notifications
-Notification:Notify("Info", "This is an information message.", "This is the description for the info message.", 3, 1)
-wait(1)
-Notification:Notify("Success", "This is a success message.", "This is the description for the success message.", 3, 2)
-wait(1)
-Notification:Notify("Warning", "This is a warning message.", "This is the description for the warning message.", 3, 3)
-wait(1)
-Notification:Notify("Error", "This is an error message.", "This is the description for the error message.", 3, 4)
-wait(1)
-Notification:Notify("Achievement", "Congratulations! You've achieved a new milestone!", "This is the description for the achievement.", 3, 0)
-wait(1)
-Notification:Notify("Update", "A new update is available. Check it out!", "This is the description for the update.", 3, 1)
-wait(1)
-Notification:Notify("Reminder", "Don't forget to complete your daily tasks!", "This is the description for the reminder.", 3, 2)
 
 return Notification
