@@ -42,7 +42,7 @@ local function calculateYSize(title, description)
     local titleSize = TextService:GetTextSize(title, 24, Enum.Font.GothamBold, Vector2.new(300, math.huge))
     local descriptionSize = TextService:GetTextSize(description, 18, Enum.Font.Gotham, Vector2.new(300, math.huge))
     local totalHeight = titleSize.Y + descriptionSize.Y + 40 -- Adding padding
-    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(1, 0, 0, titleSize.Y), UDim2.new(1, 0, 0, descriptionSize.Y)
+    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(0, 300, 0, titleSize.Y), UDim2.new(0, 300, 0, descriptionSize.Y)
 end
 
 local function createNotificationFrame(notificationType, title, description, priority)
@@ -82,7 +82,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     local descriptionLabel = Instance.new("TextLabel", notificationFrame)
     descriptionLabel.Text = description
     descriptionLabel.Size = descriptionSize
-    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y.Offset + 10)
+    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y + 10)
     descriptionLabel.BackgroundTransparency = 1
     descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
