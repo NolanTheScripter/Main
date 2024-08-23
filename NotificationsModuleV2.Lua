@@ -162,6 +162,12 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
 
     if not success then
         warn("Notification error: " .. tostring(err))
+        if setclipboard then
+            setclipboard(tostring(err))
+            print("Error copied to clipboard: " .. tostring(err))
+        else
+            print("Clipboard functionality is not available in this environment.")
+        end
     end
 end
 
