@@ -21,9 +21,9 @@ local function getNotificationContainer(screenGui)
     if not notificationContainer then
         notificationContainer = Instance.new("Frame")
         notificationContainer.Name = "NotificationContainer"
-        notificationContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
+        notificationContainer.Size = Vector2.new(300, 500) -- Fixed size
         notificationContainer.AnchorPoint = Vector2.new(1, 1)
-        notificationContainer.Position = UDim2.new(1, -20, 1, -20)
+        notificationContainer.Position = Vector2.new(screenGui.AbsoluteSize.X - 20, screenGui.AbsoluteSize.Y - 20)
         notificationContainer.BackgroundTransparency = 1
         notificationContainer.Parent = screenGui
 
@@ -42,7 +42,7 @@ local function calculateYSize(title, description)
     local titleSize = TextService:GetTextSize(title, 24, Enum.Font.GothamBold, Vector2.new(300, math.huge))
     local descriptionSize = TextService:GetTextSize(description, 18, Enum.Font.Gotham, Vector2.new(300, math.huge))
     local totalHeight = titleSize.Y + descriptionSize.Y + 40 -- Adding padding
-    return UDim2.new(1, 0, 0, totalHeight), UDim2.new(0, 300, 0, titleSize.Y), UDim2.new(0, 300, 0, descriptionSize.Y)
+    return Vector2.new(300, totalHeight), Vector2.new(300, titleSize.Y), Vector2.new(300, descriptionSize.Y)
 end
 
 local function createNotificationFrame(notificationType, title, description, priority)
@@ -65,14 +65,14 @@ local function createNotificationFrame(notificationType, title, description, pri
 
     local icon = Instance.new("ImageLabel", notificationFrame)
     icon.Image = notificationType.Icon
-    icon.Size = UDim2.new(0, 30, 0, 30)
-    icon.Position = UDim2.new(0, 10, 0, 10)
+    icon.Size = Vector2.new(30, 30)
+    icon.Position = Vector2.new(10, 10)
     icon.BackgroundTransparency = 1
 
     local titleLabel = Instance.new("TextLabel", notificationFrame)
     titleLabel.Text = title
     titleLabel.Size = titleSize
-    titleLabel.Position = UDim2.new(0, 50, 0, 5)
+    titleLabel.Position = Vector2.new(50, 5)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 24
@@ -82,7 +82,7 @@ local function createNotificationFrame(notificationType, title, description, pri
     local descriptionLabel = Instance.new("TextLabel", notificationFrame)
     descriptionLabel.Text = description
     descriptionLabel.Size = descriptionSize
-    descriptionLabel.Position = UDim2.new(0, 10, 0, titleSize.Y + 10)
+    descriptionLabel.Position = Vector2.new(10, titleSize.Y + 10)
     descriptionLabel.BackgroundTransparency = 1
     descriptionLabel.Font = Enum.Font.Gotham
     descriptionLabel.TextSize = 18
@@ -94,8 +94,8 @@ local function createNotificationFrame(notificationType, title, description, pri
     -- Interactive Close button with hover effects
     local closeButton = Instance.new("TextButton", notificationFrame)
     closeButton.Text = "✖"
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -40, 0, 5)
+    closeButton.Size = Vector2.new(30, 30)
+    closeButton.Position = Vector2.new(frameSize.X - 40, 5)
     closeButton.BackgroundColor3 = Color3.new(1, 0, 0)
     closeButton.TextColor3 = Color3.new(1, 1, 1)
     closeButton.BorderSizePixel = 0
@@ -145,14 +145,14 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
 
         -- Initial animation: slide in and scale up
         local targetSize = notificationFrame.Size
-        notificationFrame.Size = UDim2.new(0, 0, 0, targetSize.Y.Offset) -- Start with zero width
-        notificationFrame.Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset)
-        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(1, -10, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), Size = targetSize, BackgroundTransparency = 0})
+        notificationFrame.Size = Vector2.new(0, targetSize.Y) -- Start with zero width
+        notificationFrame.Position = Vector2.new(screenGui.AbsoluteSize.X + 10, notificationFrame.Position.Y)
+        local slideInTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = Vector2.new(screenGui.AbsoluteSize.X - 10, notificationFrame.Position.Y), Size = targetSize, BackgroundTransparency = 0})
         slideInTween:Play()
 
         delay(Duration or 5, function()
             -- Fade out and slide out
-            local slideOutTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, notificationFrame.Position.Y.Scale, notificationFrame.Position.Y.Offset), BackgroundTransparency = 1})
+            local slideOutTween = TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.In), {Position = Vector2.new(screenGui.AbsoluteSize.X + 10, notificationFrame.Position.Y), BackgroundTransparency = 1})
             slideOutTween:Play()
             slideOutTween.Completed:Connect(function()
                 notificationFrame:Destroy()
