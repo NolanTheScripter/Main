@@ -103,64 +103,53 @@ local function createNotificationFrame(notificationType, title, description)
 end
 
 function Notification:Notify(Type, Title, Description, Duration)
-    local notificationType = self.Type[Type]
-    
-    if not notificationType then
-        error("Invalid notification type: " .. tostring(Type))
-    end
+    local success, err = pcall(function()
+        local notificationType = self.Type[Type]
+        
+        if not notificationType then
+            error("Invalid notification type: " .. tostring(Type))
+        end
 
-    local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    local screenGui = playerGui:FindFirstChild("ScreenGui")
-    if not screenGui then
-        screenGui = Instance.new("ScreenGui")
-        screenGui.Parent = playerGui
-    end
-    
-    local notificationContainer = getNotificationContainer(screenGui)
-    
-    local notificationFrame = createNotificationFrame(notificationType, Title, Description)
-    notificationFrame.Parent = notificationContainer
+        local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        local screenGui = playerGui:FindFirstChild("ScreenGui")
+        if not screenGui then
+            screenGui = Instance.new("ScreenGui")
+            screenGui.Parent = playerGui
+        end
+        
+        local notificationContainer = getNotificationContainer(screenGui)
+        
+        local notificationFrame = createNotificationFrame(notificationType, Title, Description)
+        notificationFrame.Parent = notificationContainer
 
-    -- Initial animation: fade in and scale up
-    notificationFrame:TweenSizeAndPosition(
-        UDim2.new(0, 300, 0, 100),
-        UDim2.new(1, -10, 0, 0),
-        Enum.EasingDirection.Out,
-        Enum.EasingStyle.Bounce,
-        0.5,
-        true
-    )
-    notificationFrame:TweenPosition(
-        UDim2.new(1, -10, 0, 0),
-        Enum.EasingDirection.Out,
-        Enum.EasingStyle.Bounce,
-        0.5,
-        true
-    )
-
-    -- Fade in effect
-    notificationFrame.BackgroundTransparency = 1
-    notificationFrame:TweenSize(
-        UDim2.new(0, 300, 0, 100),
-        Enum.EasingDirection.Out,
-        Enum.EasingStyle.Bounce,
-        0.5,
-        true
-    )
-
-    delay(Duration or 5, function()
-        -- Fade out and scale down
-        notificationFrame:TweenSize(
-            UDim2.new(0, 0, 0, 0),
-            Enum.EasingDirection.In,
-            Enum.EasingStyle.Quad,
+        -- Initial animation: fade in and scale up
+        notificationFrame.Position = UDim2.new(1, 310, 0, 0)
+        notificationFrame:TweenPosition(
+            UDim2.new(1, -10, 0, 0),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Bounce,
             0.5,
-            true,
-            function()
-                notificationFrame:Destroy()
-            end
+            true
         )
+
+        delay(Duration or 5, function()
+            -- Fade out and scale down
+            notificationFrame:TweenPosition(
+                UDim2.new(1, 310, 0, 0),
+                Enum.EasingDirection.In,
+                Enum.EasingStyle.Quad,
+                0.5,
+                true,
+                function()
+                    notificationFrame:Destroy()
+                end
+            )
+        end)
     end)
+
+    if not success then
+        warn("Notification error: " .. tostring(err))
+    end
 end
 
 return Notification
