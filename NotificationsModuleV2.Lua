@@ -20,9 +20,9 @@ local function getNotificationContainer(screenGui)
     if not notificationContainer then
         notificationContainer = Instance.new("Frame")
         notificationContainer.Name = "NotificationContainer"
-        notificationContainer.Size = UDim2.new(0, 300, 1, 0)
-        notificationContainer.AnchorPoint = Vector2.new(1, 0)
-        notificationContainer.Position = UDim2.new(1, -10, 0, 0)
+        notificationContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
+        notificationContainer.AnchorPoint = Vector2.new(1, 1)
+        notificationContainer.Position = UDim2.new(1, -20, 1, -20)
         notificationContainer.BackgroundTransparency = 1
         notificationContainer.Parent = screenGui
 
@@ -31,7 +31,7 @@ local function getNotificationContainer(screenGui)
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
         layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
         layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Padding = UDim.new(0, 5)
+        layout.Padding = UDim.new(0, 10)
     end
 
     return notificationContainer
@@ -40,15 +40,24 @@ end
 local function createNotificationFrame(notificationType, title, description, priority)
     local notificationFrame = Instance.new("Frame")
     notificationFrame.BackgroundColor3 = notificationType.Color
-    notificationFrame.Size = UDim2.new(0, 300, 0, 100)
+    notificationFrame.Size = UDim2.new(1, 0, 0.2, 0)
     notificationFrame.BorderSizePixel = 0
     notificationFrame.BackgroundTransparency = 1
     notificationFrame.ClipsDescendants = true
     notificationFrame.LayoutOrder = priority
 
-    -- Rounded corners
+    -- UI Enhancements
     local corner = Instance.new("UICorner", notificationFrame)
-    corner.CornerRadius = UDim.new(0, 10)
+    corner.CornerRadius = UDim.new(0, 12)
+
+    local shadow = Instance.new("ImageLabel", notificationFrame)
+    shadow.Size = UDim2.new(1, 10, 1, 10)
+    shadow.Position = UDim2.new(0, -5, 0, -5)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 
     local icon = Instance.new("ImageLabel", notificationFrame)
     icon.Image = notificationType.Icon
@@ -150,6 +159,18 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
 end
 
 -- Example notifications
-
+Notification:Notify("Info", "This is an information message.", "This is the description for the info message.", 3, 1)
+wait(1)
+Notification:Notify("Success", "This is a success message.", "This is the description for the success message.", 3, 2)
+wait(1)
+Notification:Notify("Warning", "This is a warning message.", "This is the description for the warning message.", 3, 3)
+wait(1)
+Notification:Notify("Error", "This is an error message.", "This is the description for the error message.", 3, 4)
+wait(1)
+Notification:Notify("Achievement", "Congratulations! You've achieved a new milestone!", "This is the description for the achievement.", 3, 0)
+wait(1)
+Notification:Notify("Update", "A new update is available. Check it out!", "This is the description for the update.", 3, 1)
+wait(1)
+Notification:Notify("Reminder", "Don't forget to complete your daily tasks!", "This is the description for the reminder.", 3, 2)
 
 return Notification
