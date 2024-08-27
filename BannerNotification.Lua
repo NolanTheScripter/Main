@@ -5,11 +5,11 @@ local UserInputService = game:GetService("UserInputService")
 local Notification = {}
 Notification.__index = Notification
 
-local banner_height = 80
-local banner_padding = UDim.new(0, 10)
-local banner_corner_radius = UDim.new(0, 8)
-local fade_duration = 0.3
-local display_duration = 5
+local notification_height = 50
+local notification_padding = UDim.new(0, 5)
+local notification_corner_radius = UDim.new(0, 10)
+local fade_duration = 0.5
+local display_duration = 3
 
 local color_schemes = {
     info = {
@@ -38,40 +38,43 @@ local function create_screen_gui()
     local screen_gui = Instance.new("ScreenGui")
     screen_gui.Name = "NotificationGui"
     screen_gui.ResetOnSpawn = false
-    
+
     local frame = Instance.new("Frame")
     frame.Name = "NotificationContainer"
-    frame.Size = UDim2.new(0, 300, 1, 0)
-    frame.Position = UDim2.new(1, -310, 0, 0)
+    frame.Size = UDim2.new(1, 0, 0, 0)
+    frame.Position = UDim2.new(0.5, 0, 0, 0)
+    frame.AnchorPoint = Vector2.new(0.5, 0)
     frame.BackgroundTransparency = 1
     frame.Parent = screen_gui
-    
+
     local list_layout = Instance.new("UIListLayout")
     list_layout.SortOrder = Enum.SortOrder.LayoutOrder
-    list_layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-    list_layout.Padding = banner_padding
+    list_layout.VerticalAlignment = Enum.VerticalAlignment.Top
+    list_layout.Padding = notification_padding
     list_layout.Parent = frame
-    
+
     return screen_gui
 end
 
 local function create_notification(notification_type, message, notification_width)
     local notification_frame = Instance.new("Frame")
-    notification_frame.Size = UDim2.new(0, notification_width, 0, banner_height)
+    notification_frame.Size = UDim2.new(0, notification_width, 0, notification_height)
     notification_frame.BackgroundColor3 = color_schemes[notification_type].background
     notification_frame.BackgroundTransparency = 1
-    
+    notification_frame.Position = UDim2.new(0, 0, 0, -10)
+    notification_frame.Size = UDim2.new(0, notification_width * 0.95, 0, notification_height * 0.95)
+
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = banner_corner_radius
+    corner.CornerRadius = notification_corner_radius
     corner.Parent = notification_frame
-    
+
     local padding = Instance.new("UIPadding")
     padding.PaddingLeft = UDim.new(0, 10)
     padding.PaddingRight = UDim.new(0, 10)
-    padding.PaddingTop = UDim.new(0, 10)
-    padding.PaddingBottom = UDim.new(0, 10)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.PaddingBottom = UDim.new(0, 5)
     padding.Parent = notification_frame
-    
+
     local text_label = Instance.new("TextLabel")
     text_label.Size = UDim2.new(1, -20, 1, -20)
     text_label.Position = UDim2.new(0, 10, 0, 10)
@@ -82,7 +85,7 @@ local function create_notification(notification_type, message, notification_widt
     text_label.TextWrapped = true
     text_label.Text = message
     text_label.Parent = notification_frame
-    
+
     local close_button = Instance.new("TextButton")
     close_button.Size = UDim2.new(0, 20, 0, 20)
     close_button.Position = UDim2.new(1, -25, 0, 5)
@@ -92,20 +95,28 @@ local function create_notification(notification_type, message, notification_widt
     close_button.TextSize = 14
     close_button.Text = "X"
     close_button.Parent = notification_frame
-    
+
     return notification_frame
 end
 
 local function animate_notification(notification_frame)
-    local fade_in_info = TweenInfo.new(fade_duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local fade_in_tween = TweenService:Create(notification_frame, fade_in_info, {BackgroundTransparency = 0})
+    local fade_in_info = TweenInfo.new(fade_duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local fade_in_tween = TweenService:Create(notification_frame, fade_in_info, {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0, 0, 0, 10),
+        Size = UDim2.new(0, notification_frame.Size.X.Offset / 0.95, 0, notification_frame.Size.Y.Offset / 0.95)
+    })
     fade_in_tween:Play()
-    
+
     task.delay(display_duration, function()
         local fade_out_info = TweenInfo.new(fade_duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        local fade_out_tween = TweenService:Create(notification_frame, fade_out_info, {BackgroundTransparency = 1})
+        local fade_out_tween = TweenService:Create(notification_frame, fade_out_info, {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0, -10),
+            Size = UDim2.new(0, notification_frame.Size.X.Offset * 0.95, 0, notification_frame.Size.Y.Offset * 0.95)
+        })
         fade_out_tween:Play()
-        
+
         fade_out_tween.Completed:Connect(function()
             notification_frame:Destroy()
         end)
@@ -114,33 +125,37 @@ end
 
 function Notification.Notify(notification_type, message)
     assert(color_schemes[notification_type], "Invalid notification type")
-    
+
     local player = Players.LocalPlayer
     if not player then return end
-    
+
     local player_gui = player:WaitForChild("PlayerGui")
     local screen_gui = player_gui:FindFirstChild("NotificationGui")
-    
+
     if not screen_gui then
         screen_gui = create_screen_gui()
         screen_gui.Parent = player_gui
     end
-    
+
     local container = screen_gui.NotificationContainer
 
     local viewport_size = workspace.CurrentCamera.ViewportSize
     local notification_width = is_mobile() and math.min(viewport_size.X * 0.8, 300) or math.min(viewport_size.X * 0.5, 300)
-    
+
     local notification_frame = create_notification(notification_type, message, notification_width)
     notification_frame.Parent = container
-    
+
     animate_notification(notification_frame)
-    
+
     notification_frame.TextButton.MouseButton1Click:Connect(function()
         local fade_out_info = TweenInfo.new(fade_duration / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        local fade_out_tween = TweenService:Create(notification_frame, fade_out_info, {BackgroundTransparency = 1})
+        local fade_out_tween = TweenService:Create(notification_frame, fade_out_info, {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0, -10),
+            Size = UDim2.new(0, notification_frame.Size.X.Offset * 0.95, 0, notification_frame.Size.Y.Offset * 0.95)
+        })
         fade_out_tween:Play()
-        
+
         fade_out_tween.Completed:Connect(function()
             notification_frame:Destroy()
         end)
