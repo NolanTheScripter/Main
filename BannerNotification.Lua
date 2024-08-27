@@ -112,7 +112,7 @@ local function animate_notification(notification_frame)
     end)
 end
 
-function Notification.show(notification_type, message)
+function Notification.Notify(notification_type, message)
     assert(color_schemes[notification_type], "Invalid notification type")
     
     local player = Players.LocalPlayer
