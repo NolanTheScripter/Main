@@ -1,6 +1,7 @@
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local LogService = game:GetService("LogService")
 
 local Notification = {}
 Notification.__index = Notification
@@ -9,7 +10,6 @@ local notification_height = 50
 local notification_padding = UDim.new(0, 5)
 local notification_corner_radius = UDim.new(0, 10)
 local fade_duration = 0.5
-local display_duration = 3
 
 local color_schemes = {
     info = {
@@ -56,7 +56,7 @@ local function create_screen_gui()
     return screen_gui
 end
 
-local function create_notification(notification_type, message, notification_width)
+local function create_notification(notification_type, title, description, notification_width)
     local notification_frame = Instance.new("Frame")
     notification_frame.Size = UDim2.new(0, notification_width, 0, notification_height)
     notification_frame.BackgroundColor3 = color_schemes[notification_type].background
@@ -83,7 +83,7 @@ local function create_notification(notification_type, message, notification_widt
     text_label.TextColor3 = color_schemes[notification_type].text
     text_label.TextSize = 14
     text_label.TextWrapped = true
-    text_label.Text = message
+    text_label.Text = title .. "\n" .. description
     text_label.Parent = notification_frame
 
     local close_button = Instance.new("TextButton")
@@ -99,7 +99,7 @@ local function create_notification(notification_type, message, notification_widt
     return notification_frame
 end
 
-local function animate_notification(notification_frame)
+local function animate_notification(notification_frame, container, duration)
     local fade_in_info = TweenInfo.new(fade_duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local fade_in_tween = TweenService:Create(notification_frame, fade_in_info, {
         BackgroundTransparency = 0,
@@ -108,7 +108,7 @@ local function animate_notification(notification_frame)
     })
     fade_in_tween:Play()
 
-    task.delay(display_duration, function()
+    task.delay(duration, function()
         local fade_out_info = TweenInfo.new(fade_duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         local fade_out_tween = TweenService:Create(notification_frame, fade_out_info, {
             BackgroundTransparency = 1,
@@ -119,12 +119,24 @@ local function animate_notification(notification_frame)
 
         fade_out_tween.Completed:Connect(function()
             notification_frame:Destroy()
+            local layout_tween = TweenService:Create(container, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {})
+            layout_tween:Play()
         end)
     end)
 end
 
-function Notification.Notify(notification_type, message)
-    assert(color_schemes[notification_type], "Invalid notification type")
+function Notification.Notify(title, description, duration)
+    local notification_type = "info"
+    local lower_title = title:lower()
+    local lower_description = description:lower()
+
+    if lower_title:find("error") or lower_description:find("error") then
+        notification_type = "error"
+    elseif lower_title:find("success") or lower_description:find("success") then
+        notification_type = "success"
+    elseif lower_title:find("warn") or lower_description:find("warn") then
+        notification_type = "warning"
+    end
 
     local player = Players.LocalPlayer
     if not player then return end
@@ -142,10 +154,10 @@ function Notification.Notify(notification_type, message)
     local viewport_size = workspace.CurrentCamera.ViewportSize
     local notification_width = is_mobile() and math.min(viewport_size.X * 0.8, 300) or math.min(viewport_size.X * 0.5, 300)
 
-    local notification_frame = create_notification(notification_type, message, notification_width)
+    local notification_frame = create_notification(notification_type, title, description, notification_width)
     notification_frame.Parent = container
 
-    animate_notification(notification_frame)
+    animate_notification(notification_frame, container, duration)
 
     notification_frame.TextButton.MouseButton1Click:Connect(function()
         local fade_out_info = TweenInfo.new(fade_duration / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
@@ -158,8 +170,21 @@ function Notification.Notify(notification_type, message)
 
         fade_out_tween.Completed:Connect(function()
             notification_frame:Destroy()
+            local layout_tween = TweenService:Create(container, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {})
+            layout_tween:Play()
         end)
     end)
 end
+
+-- Logger that listens for errors and sends notifications
+local function start_error_logger()
+    LogService.MessageOut:Connect(function(message, messageType)
+        if messageType == Enum.MessageType.MessageError then
+            Notification.Notify("Error:", tostring(message), 5)
+        end
+    end)
+end
+
+start_error_logger()
 
 return Notification
