@@ -51,7 +51,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     shadow.Size = UDim2.new(1, 20, 1, 20)
     shadow.Position = UDim2.new(0.5, -Width / 2 - 10, 0.1, -10)
     shadow.AnchorPoint = Vector2.new(0.5, 0)
-    shadow.Image = "rbxassetid://1316045217" -- Replace with your shadow image asset ID
+    shadow.Image = "rbxassetid://1316045217"
     shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
     shadow.BackgroundTransparency = 1
     shadow.ImageTransparency = 0.5
