@@ -1,3 +1,4 @@
+
 local NotificationServer = {}
 
 local FlameIcon = "rbxassetid://11803247078"
