@@ -37,8 +37,19 @@ function NotificationServer:Notify(title, description, icon, duration)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     frame.BackgroundTransparency = 0.2
     frame.BorderSizePixel = 0
-    frame.ZIndex = 1
+    frame.ZIndex = 2
     frame.Parent = screenGui.NotificationFrame
+
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0.5, -Width / 2 - 10, 0.1, -10)
+    shadow.AnchorPoint = Vector2.new(0.5, 0)
+    shadow.Image = "rbxassetid://1316045217" -- Replace with a flame-like image if available
+    shadow.ImageColor3 = Color3.fromRGB(255, 69, 0) -- Flame-like color
+    shadow.BackgroundTransparency = 1
+    shadow.ImageTransparency = 0.5
+    shadow.ZIndex = 1
+    shadow.Parent = frame
 
     local uiCorner = Instance.new("UICorner")
     uiCorner.CornerRadius = UDim.new(0, 10)
@@ -57,7 +68,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.SourceSansBold
     titleLabel.TextSize = 24
-    titleLabel.ZIndex = 2
+    titleLabel.ZIndex = 3
     titleLabel.Parent = frame
 
     local descriptionLabel = Instance.new("TextLabel")
@@ -69,7 +80,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     descriptionLabel.Font = Enum.Font.SourceSans
     descriptionLabel.TextSize = 18
     descriptionLabel.TextWrapped = true
-    descriptionLabel.ZIndex = 2
+    descriptionLabel.ZIndex = 3
     descriptionLabel.Parent = frame
 
     local iconImage = Instance.new("ImageLabel")
@@ -77,7 +88,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     iconImage.Position = UDim2.new(0, 5, 0, 45)
     iconImage.Image = icon
     iconImage.BackgroundTransparency = 1
-    iconImage.ZIndex = 2
+    iconImage.ZIndex = 3
     iconImage.Parent = frame
 
     local closeButton = Instance.new("TextButton")
@@ -88,7 +99,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     closeButton.BackgroundTransparency = 1
     closeButton.Font = Enum.Font.SourceSansBold
     closeButton.TextSize = 18
-    closeButton.ZIndex = 2
+    closeButton.ZIndex = 3
     closeButton.Parent = frame
 
     closeButton.MouseButton1Click:Connect(function()
