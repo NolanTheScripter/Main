@@ -2,8 +2,8 @@ local NotificationServer = {}
 
 local FlameIcon = "rbxassetid://11803247078"
 local Duration = 5
-local Width = 300 / 1.4
-local Height = 100 / 1.4
+local Width = 300 / 0.5
+local Height = 100 / 0.5
 
 function NotificationServer:Notify(title, description, icon, duration)
     icon = icon or FlameIcon
