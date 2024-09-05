@@ -1,4 +1,3 @@
-
 local NotificationServer = {}
 
 local FlameIcon = "rbxassetid://11803247078"
@@ -35,8 +34,6 @@ function NotificationServer:Notify(title, description, icon, duration)
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, Width, 0, Height)
-    frame.Position = UDim2.new(0.5, -Width / 2, 1, -Height - 20) -- Adjusted position
-    frame.AnchorPoint = Vector2.new(0.5, 1)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     frame.BackgroundTransparency = 0
     frame.BorderSizePixel = 0
@@ -98,14 +95,23 @@ function NotificationServer:Notify(title, description, icon, duration)
         frame:Destroy()
     end)
 
+    local function updatePosition()
+        local screenSize = workspace.CurrentCamera.ViewportSize
+        local startX = math.max((screenSize.X - Width) / 2, 0)
+        local startY = screenSize.Y - Height - 20
+        frame.Position = UDim2.new(0, startX, 0, startY)
+    end
+
+    updatePosition()
+
     local tweenInfoIn = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tweenIn = game:GetService("TweenService"):Create(frame, tweenInfoIn, { Position = UDim2.new(0.5, -Width / 2, 0.9, 0) })
+    local tweenIn = game:GetService("TweenService"):Create(frame, tweenInfoIn, { Position = frame.Position + UDim2.new(0, 0, 0, -20) })
     tweenIn:Play()
 
     task.spawn(function()
         task.wait(duration)
         local tweenInfoOut = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        local tweenOut = game:GetService("TweenService"):Create(frame, tweenInfoOut, { Position = UDim2.new(0.5, -Width / 2, 1.2, 0) })
+        local tweenOut = game:GetService("TweenService"):Create(frame, tweenInfoOut, { Position = frame.Position + UDim2.new(0, 0, 0, 20) })
         tweenOut:Play()
         tweenOut.Completed:Connect(function()
             frame:Destroy()
