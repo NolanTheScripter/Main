@@ -1,4 +1,4 @@
--- MADE BY FlamesW (not mine) --
+-- MADE BY FlamesW | https://github.com/Lvl9999 (not mine) --
 
 
 local StrToNumber = tonumber;
