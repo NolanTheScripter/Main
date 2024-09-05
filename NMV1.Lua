@@ -2,8 +2,8 @@ local NotificationServer = {}
 
 local FlameIcon = "rbxassetid://11803247078"
 local Duration = 5
-local Width = 300
-local Height = 100
+local Width = 300 / 1.4
+local Height = 100 / 1.4
 
 function NotificationServer:Notify(title, description, icon, duration)
     icon = icon or FlameIcon
@@ -14,6 +14,7 @@ function NotificationServer:Notify(title, description, icon, duration)
         screenGui = Instance.new("ScreenGui")
         screenGui.Name = "NotificationGui"
         screenGui.ResetOnSpawn = false
+        screenGui.IgnoreGuiInset = true
         screenGui.Parent = game:GetService("CoreGui")
 
         local notificationFrame = Instance.new("Frame")
@@ -94,16 +95,16 @@ function NotificationServer:Notify(title, description, icon, duration)
         frame:Destroy()
     end)
 
-    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tween = game:GetService("TweenService"):Create(frame, tweenInfo, { Position = UDim2.new(0.5, -Width / 2, 0.1, 0) })
-    tween:Play()
+    local tweenInfoIn = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local tweenIn = game:GetService("TweenService"):Create(frame, tweenInfoIn, { Position = UDim2.new(0.5, -Width / 2, 0.1, 0) })
+    tweenIn:Play()
 
     task.spawn(function()
         task.wait(duration)
-        local exitTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        local exitTween = game:GetService("TweenService"):Create(frame, exitTweenInfo, { Position = UDim2.new(0.5, -Width / 2, -0.2, 0) })
-        exitTween:Play()
-        exitTween.Completed:Connect(function()
+        local tweenInfoOut = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+        local tweenOut = game:GetService("TweenService"):Create(frame, tweenInfoOut, { Position = UDim2.new(0.5, -Width / 2, -0.2, 0) })
+        tweenOut:Play()
+        tweenOut.Completed:Connect(function()
             frame:Destroy()
         end)
     end)
