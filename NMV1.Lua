@@ -5,21 +5,50 @@ local Duration = 5
 local Width = 300
 local Height = 100
 
-function NotificationServer:Notify(title, description, icon, duration, player)
+function NotificationServer:Notify(title, description, icon, duration)
     title = title or "Notification"
     description = description or ""
     icon = icon or FlameIcon
     duration = duration or Duration
 
-    if not player or not player:IsA("Player") then
-        warn("Invalid player provided for notification.")
-        return
+    -- Assuming a single ScreenGui for all notifications
+    local screenGui = game:GetService("CoreGui"):FindFirstChild("NotificationGui")
+
+    if not screenGui then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "NotificationGui"
+        screenGui.ResetOnSpawn = false
+        screenGui.Parent = game:GetService("CoreGui")
+
+        local scrollingFrame = Instance.new("ScrollingFrame")
+        scrollingFrame.Size = UDim2.new(0, Width + 20, 0.5, 0)
+        scrollingFrame.Position = UDim2.new(0.5, -(Width + 20) / 2, 0.1, 0)
+        scrollingFrame.AnchorPoint = Vector2.new(0.5, 0)
+        scrollingFrame.BackgroundTransparency = 1
+        scrollingFrame.BorderSizePixel = 0
+        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scrollingFrame.ScrollBarThickness = 8
+        scrollingFrame.Parent = screenGui
+
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.Padding = UDim.new(0, 10)
+        listLayout.FillDirection = Enum.FillDirection.Vertical
+        listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+        listLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+        listLayout.Parent = scrollingFrame
+
+        listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+        end)
     end
 
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "NotificationGui"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = player:WaitForChild("PlayerGui")
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, Width, 0, Height)
+    frame.BackgroundColor3 = Color3.new(0, 0, 0)
+    frame.BackgroundTransparency = 0.5
+    frame.BorderSizePixel = 0
+    frame.ZIndex = 1
+    frame.Parent = screenGui.ScrollingFrame
 
     local shadow = Instance.new("ImageLabel")
     shadow.Size = UDim2.new(1, 20, 1, 20)
@@ -30,17 +59,7 @@ function NotificationServer:Notify(title, description, icon, duration, player)
     shadow.BackgroundTransparency = 1
     shadow.ImageTransparency = 0.5
     shadow.ZIndex = 0
-    shadow.Parent = screenGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, Width, 0, Height)
-    frame.Position = UDim2.new(0.5, -Width / 2, -0.2, 0)
-    frame.AnchorPoint = Vector2.new(0.5, 0)
-    frame.BackgroundColor3 = Color3.new(0, 0, 0)
-    frame.BackgroundTransparency = 0.5
-    frame.BorderSizePixel = 0
-    frame.ZIndex = 1
-    frame.Parent = screenGui
+    shadow.Parent = frame
 
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1, -10, 0, 30)
@@ -83,7 +102,7 @@ function NotificationServer:Notify(title, description, icon, duration, player)
         local exitTween = game:GetService("TweenService"):Create(frame, exitTweenInfo, { Position = UDim2.new(0.5, -Width / 2, -0.2, 0) })
         exitTween:Play()
         exitTween.Completed:Connect(function()
-            screenGui:Destroy()
+            frame:Destroy()
         end)
     end)
 end
