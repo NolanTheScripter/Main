@@ -17,26 +17,19 @@ function NotificationServer:Notify(title, description, icon, duration)
         screenGui.ResetOnSpawn = false
         screenGui.Parent = game:GetService("CoreGui")
 
-        local scrollingFrame = Instance.new("ScrollingFrame")
-        scrollingFrame.Size = UDim2.new(0, Width + 20, 0.5, 0)
-        scrollingFrame.Position = UDim2.new(0.5, -(Width + 20) / 2, 0.1, 0)
-        scrollingFrame.AnchorPoint = Vector2.new(0.5, 0)
-        scrollingFrame.BackgroundTransparency = 1
-        scrollingFrame.BorderSizePixel = 0
-        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scrollingFrame.ScrollBarThickness = 8
-        scrollingFrame.Parent = screenGui
+        local notificationFrame = Instance.new("Frame")
+        notificationFrame.Name = "NotificationFrame"
+        notificationFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
+        notificationFrame.Position = UDim2.new(1, -20, 1, -20)
+        notificationFrame.AnchorPoint = Vector2.new(1, 1)
+        notificationFrame.BackgroundTransparency = 1
+        notificationFrame.Parent = screenGui
 
-        local listLayout = Instance.new("UIListLayout")
-        listLayout.Padding = UDim.new(0, 10)
-        listLayout.FillDirection = Enum.FillDirection.Vertical
-        listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-        listLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-        listLayout.Parent = scrollingFrame
-
-        listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
-        end)
+        local uiListLayout = Instance.new("UIListLayout")
+        uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        uiListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+        uiListLayout.Padding = UDim.new(0, 4)
+        uiListLayout.Parent = notificationFrame
     end
 
     local frame = Instance.new("Frame")
@@ -45,7 +38,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     frame.BackgroundTransparency = 0.5
     frame.BorderSizePixel = 0
     frame.ZIndex = 1
-    frame.Parent = screenGui.ScrollingFrame
+    frame.Parent = screenGui.NotificationFrame
 
     local shadow = Instance.new("ImageLabel")
     shadow.Size = UDim2.new(1, 20, 1, 20)
