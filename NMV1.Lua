@@ -35,7 +35,7 @@ function NotificationServer:Notify(title, description, icon, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, Width, 0, Height)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 0
+    frame.BackgroundTransparency = 0.2
     frame.BorderSizePixel = 0
     frame.ZIndex = 1
     frame.Parent = screenGui.NotificationFrame
@@ -97,7 +97,7 @@ function NotificationServer:Notify(title, description, icon, duration)
 
     local function updatePosition()
         local screenSize = workspace.CurrentCamera.ViewportSize
-        local startX = math.max((screenSize.X - Width) / 2, 0)
+        local startX = math.clamp((screenSize.X - Width) / 2, 0, screenSize.X - Width)
         local startY = screenSize.Y - Height - 20
         frame.Position = UDim2.new(0, startX, 0, startY)
     end
