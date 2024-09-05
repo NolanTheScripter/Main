@@ -37,7 +37,7 @@ Color3.fromRGB(0,0,0) -- Black
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, Width, 0, Height)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 
+    frame.BackgroundTransparency = 0
     frame.BorderSizePixel = 0
     frame.ZIndex = 2
     frame.Parent = screenGui.NotificationFrame
