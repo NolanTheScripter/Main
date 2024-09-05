@@ -10,7 +10,6 @@ function NotificationServer:Notify(title, description, icon, duration)
     duration = duration or Duration
 
     local screenGui = game:GetService("CoreGui"):FindFirstChild("NotificationGui")
-
     if not screenGui then
         screenGui = Instance.new("ScreenGui")
         screenGui.Name = "NotificationGui"
@@ -34,30 +33,18 @@ function NotificationServer:Notify(title, description, icon, duration)
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, Width, 0, Height)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    frame.BackgroundTransparency = 0.5
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0
     frame.BorderSizePixel = 0
     frame.ZIndex = 1
     frame.Parent = screenGui.NotificationFrame
 
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0.5, -Width / 2 - 10, 0.1, -10)
-    shadow.AnchorPoint = Vector2.new(0.5, 0)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.BackgroundTransparency = 1
-    shadow.ImageTransparency = 0.5
-    shadow.ZIndex = 0
-    shadow.Parent = frame
-
-    local uiGradient = Instance.new("UIGradient")
-    uiGradient.Color = ColorSequence.new(Color3.fromRGB(45, 45, 45), Color3.fromRGB(60, 60, 60))
-    uiGradient.Rotation = 90
-    uiGradient.Parent = frame
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 10)
+    uiCorner.Parent = frame
 
     local uiStroke = Instance.new("UIStroke")
-    uiStroke.Thickness = 3
+    uiStroke.Thickness = 2
     uiStroke.Color = Color3.fromRGB(255, 255, 255)
     uiStroke.Parent = frame
 
@@ -92,13 +79,28 @@ function NotificationServer:Notify(title, description, icon, duration)
     iconImage.ZIndex = 2
     iconImage.Parent = frame
 
-    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 5)
+    closeButton.Text = "X"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Font = Enum.Font.SourceSansBold
+    closeButton.TextSize = 18
+    closeButton.ZIndex = 2
+    closeButton.Parent = frame
+
+    closeButton.MouseButton1Click:Connect(function()
+        frame:Destroy()
+    end)
+
+    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local tween = game:GetService("TweenService"):Create(frame, tweenInfo, { Position = UDim2.new(0.5, -Width / 2, 0.1, 0) })
     tween:Play()
 
     task.spawn(function()
         task.wait(duration)
-        local exitTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.In)
+        local exitTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         local exitTween = game:GetService("TweenService"):Create(frame, exitTweenInfo, { Position = UDim2.new(0.5, -Width / 2, -0.2, 0) })
         exitTween:Play()
         exitTween.Completed:Connect(function()
