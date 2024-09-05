@@ -22,6 +22,8 @@ function NotificationServer:Notify(title, description, icon, duration)
         notificationFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
         notificationFrame.Position = UDim2.new(1, -20, 1, -20)
         notificationFrame.AnchorPoint = Vector2.new(1, 1)
+        notificationFrame.BackgroundColor3 =
+Color3.fromRGB(0,0,0) -- Black
         notificationFrame.BackgroundTransparency = 1
         notificationFrame.Parent = screenGui
 
@@ -35,15 +37,15 @@ function NotificationServer:Notify(title, description, icon, duration)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, Width, 0, Height)
     frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 0.2
+    frame.BackgroundTransparency = 
     frame.BorderSizePixel = 0
     frame.ZIndex = 2
     frame.Parent = screenGui.NotificationFrame
 
     local shadow = Instance.new("ImageLabel")
     shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0.5, -Width / 2 - 10, 0.1, -10)
-    shadow.AnchorPoint = Vector2.new(0.5, 0)
+    shadow.Position = UDim2.new(0, 0, 0, 0)
+    shadow.AnchorPoint = Vector2.new(0, 0)
     shadow.Image = "rbxassetid://1316045217" -- Replace with a flame-like image if available
     shadow.ImageColor3 = Color3.fromRGB(255, 69, 0) -- Flame-like color
     shadow.BackgroundTransparency = 1
