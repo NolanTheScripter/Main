@@ -1,318 +1,316 @@
-local SafeCall = {}
+local SC = {};
 
-SafeCall.Defaults = {
-    RetryCount = 2,
-    RetryDelay = 1,
-    YieldInterval = 0.03
-}
+SC.Def = {
+    RetryCnt = 2;
+    RetryDly = 1;
+    YieldInt = 0.03;
+};
 
-SafeCall.Errors = {
-    InvalidURL = "Invalid URL provided",
-    Aborted = "Execution aborted",
-    Suspicious = "Suspicious content detected",
-    FetchFailed = "Failed to fetch script",
-    ExecutionFailed = "Script execution failed"
-}
+SC.Err = {
+    InvalidURL = "Invalid URL provided";
+    Aborted = "Execution aborted";
+    Suspicious = "Suspicious content detected";
+    FetchFail = "Failed to fetch script";
+    ExecFail = "Script execution failed";
+};
 
-SafeCall.AntiVirus = {
-    DetectionLog = {},
-    QuarantineFolder = "AntiVirusQuarantine",
-    
-    LogDetection = function(self, url, reason)
-        table.insert(self.DetectionLog, {
-            Timestamp = os.time(),
-            URL = url,
-            Reason = reason
-        })
-        warn("⚠️ Suspicious script detected and blocked from: " .. url)
-        warn("Reason: " .. reason)
-    end,
+SC.AV = {
+    Log = {};
+    QuarantineDir = "AVQuarantine";
 
-    QuarantineScript = function(self, url, content)
-        if not isfolder(self.QuarantineFolder) then
-            makefolder(self.QuarantineFolder)
-        end
-        local fileName = self.QuarantineFolder .. "/" .. game:GetService("HttpService"):GenerateGUID(false) .. ".lua"
-        writefile(fileName, content)
-        print("🔒 Suspicious script quarantined: " .. fileName)
-    end,
+    LogDet = function(self, url, reason)
+        table.insert(self.Log, {
+            Time = os.time();
+            URL = url;
+            Reason = reason;
+        });
+        warn("⚠️ Suspicious script detected and blocked from: " .. url);
+        warn("Reason: " .. reason);
+    end;
 
-    ScanWorkspace = function(self)
-        print("🔍 Scanning workspace for suspicious scripts...")
-        local suspiciousCount = 0
-        local function scanInstance(instance)
-            if instance:IsA("LuaSourceContainer") then
-                local source = instance.Source
-                local isSuspicious, reason = SafeCall.IsSuspicious(source)
-                if isSuspicious then
-                    suspiciousCount = suspiciousCount + 1
-                    warn("⚠️ Suspicious script found in workspace: " .. instance:GetFullName())
-                    warn("Reason: " .. reason)
-                    -- Optionally disable or remove the script
-                    -- instance.Disabled = true
-                    -- or instance:Destroy()
-                end
-            end
-            for _, child in ipairs(instance:GetChildren()) do
-                scanInstance(child)
-            end
-        end
-        scanInstance(game)
-        print("✅ Workspace scan completed. Found " .. suspiciousCount .. " suspicious scripts.")
-    end,
+    QuarantineScr = function(self, url, content)
+        if not isfolder(self.QuarantineDir) then
+            makefolder(self.QuarantineDir);
+        end;
+        local fileName = self.QuarantineDir .. "/" .. game:GetService("HttpService"):GenerateGUID(false) .. ".lua";
+        writefile(fileName, content);
+        print("🔒 Suspicious script quarantined: " .. fileName);
+    end;
+
+    ScanWS = function(self)
+        print("🔍 Scanning workspace for suspicious scripts...");
+        local suspCnt = 0;
+        local function scanInst(inst)
+            if inst:IsA("LuaSourceContainer") then
+                local src = inst.Source;
+                local isSusp, reason = SC.IsSusp(src);
+                if isSusp then
+                    suspCnt = suspCnt + 1;
+                    warn("⚠️ Suspicious script found in workspace: " .. inst:GetFullName());
+                    warn("Reason: " .. reason);
+                end;
+            end;
+            for _, child in ipairs(inst:GetChildren()) do
+                scanInst(child);
+            end;
+        end;
+        scanInst(game);
+        print("✅ Workspace scan completed. Found " .. suspCnt .. " suspicious scripts.");
+    end;
 
     ScanAll = function(self)
-        print("🔍 Scanning all instances, services, functions, variables, and numbers for suspicious content...")
-        local suspiciousCount = 0
+        print("🔍 Scanning all instances for suspicious content...");
+        local suspCnt = 0;
 
-        local function scanTable(tbl)
-            for key, value in pairs(tbl) do
-                if type(value) == "string" then
-                    local isSuspicious, reason = SafeCall.IsSuspicious(value)
-                    if isSuspicious then
-                        suspiciousCount = suspiciousCount + 1
-                        warn("⚠️ Suspicious content found in table key: " .. tostring(key))
-                        warn("Reason: " .. reason)
-                    end
-                elseif type(value) == "table" then
-                    scanTable(value)
-                end
-            end
-        end
+        local function scanTbl(tbl)
+            for key, val in pairs(tbl) do
+                if type(val) == "string" then
+                    local isSusp, reason = SC.IsSusp(val);
+                    if isSusp then
+                        suspCnt = suspCnt + 1;
+                        warn("⚠️ Suspicious content found in table key: " .. tostring(key));
+                        warn("Reason: " .. reason);
+                    end;
+                elseif type(val) == "table" then
+                    scanTbl(val);
+                end;
+            end;
+        end;
 
-        local function scanInstance(instance)
-            if instance:IsA("LuaSourceContainer") then
-                local source = instance.Source
-                local isSuspicious, reason = SafeCall.IsSuspicious(source)
-                if isSuspicious then
-                    suspiciousCount = suspiciousCount + 1
-                    warn("⚠️ Suspicious script found in instance: " .. instance:GetFullName())
-                    warn("Reason: " .. reason)
-                end
-            end
-            for _, child in ipairs(instance:GetChildren()) do
-                scanInstance(child)
-            end
-        end
+        local function scanInst(inst)
+            if inst:IsA("LuaSourceContainer") then
+                local src = inst.Source;
+                local isSusp, reason = SC.IsSusp(src);
+                if isSusp then
+                    suspCnt = suspCnt + 1;
+                    warn("⚠️ Suspicious script found in instance: " .. inst:GetFullName());
+                    warn("Reason: " .. reason);
+                end;
+            end;
+            for _, child in ipairs(inst:GetChildren()) do
+                scanInst(child);
+            end;
+        end;
 
-        local function scanService(service)
-            for _, instance in ipairs(service:GetChildren()) do
-                scanInstance(instance)
-            end
-        end
+        local function scanSvc(svc)
+            for _, inst in ipairs(svc:GetChildren()) do
+                scanInst(inst);
+            end;
+        end;
 
-        for _, service in ipairs(game:GetChildren()) do
-            scanService(service)
-        end
+        for _, svc in ipairs(game:GetChildren()) do
+            scanSvc(svc);
+        end;
 
         -- Scan global environment
-        scanTable(_G)
+        scanTbl(_G);
 
         -- Scan workspace
-        scanInstance(game)
+        scanInst(game);
 
-        print("✅ Comprehensive scan completed. Found " .. suspiciousCount .. " suspicious items.")
-    end
-}
+        print("✅ Comprehensive scan completed. Found " .. suspCnt .. " suspicious items.");
+    end;
+};
 
-SafeCall.GUI = {
-    ScreenGui = nil,
-    NotificationTemplate = nil,
+SC.GUI = {
+    SGUINode = nil;
+    NotifyTpl = nil;
 
-    Setup = function(self)
-        self.ScreenGui = Instance.new("ScreenGui")
-        self.ScreenGui.Name = "SafeCallNotifications"
-        self.ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    SetupGUI= function(self)
+        self.SGUINode= Instance.new("ScreenGui");
+        self.SGUINode.Name= "SCNotify";
+        self.SGUINode.Parent= game.Players.LocalPlayer:WaitForChild("PlayerGui");
 
-        self.NotificationTemplate = Instance.new("TextLabel")
-        self.NotificationTemplate.Size = UDim2.new(0, 300, 0, 50)
-        self.NotificationTemplate.Position = UDim2.new(1, -320, 1, -70)
-        self.NotificationTemplate.AnchorPoint = Vector2.new(0, 1)
-        self.NotificationTemplate.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        self.NotificationTemplate.TextColor3 = Color3.fromRGB(255, 255, 255)
-        self.NotificationTemplate.TextSize = 14
-        self.NotificationTemplate.Font = Enum.Font.SourceSansBold
-        self.NotificationTemplate.TextWrapped = true
-        self.NotificationTemplate.TextXAlignment = Enum.TextXAlignment.Left
-        self.NotificationTemplate.TextYAlignment = Enum.TextYAlignment.Top
+        self.NotifyTpl= Instance.new("TextLabel");
+        self.NotifyTpl.Size= UDim2.new(0, 300, 0, 50);
+        self.NotifyTpl.Position= UDim2.new(1, -320, 1, -70);
+        self.NotifyTpl.AnchorPoint= Vector2.new(0, 1);
+        self.NotifyTpl.BackgroundColor3= Color3.fromRGB(40, 40, 40);
+        self.NotifyTpl.TextColor3= Color3.fromRGB(255, 255, 255);
+        self.NotifyTpl.TextSize= 14;
+        self.NotifyTpl.Font= Enum.Font.SourceSansBold;
+        self.NotifyTpl.TextWrapped= true;
+        self.NotifyTpl.TextXAlignment= Enum.TextXAlignment.Left;
+        self.NotifyTpl.TextYAlignment= Enum.TextYAlignment.Top;
 
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = self.NotificationTemplate
+        local corner= Instance.new("UICorner");
+        corner.CornerRadius= UDim.new(0, 8);
+        corner.Parent= self.NotifyTpl;
 
-        local padding = Instance.new("UIPadding")
-        padding.PaddingLeft = UDim.new(0, 10)
-        padding.PaddingRight = UDim.new(0, 10)
-        padding.PaddingTop = UDim.new(0, 5)
-        padding.PaddingBottom = UDim.new(0, 5)
-        padding.Parent = self.NotificationTemplate
-    end,
+       local padding= Instance.new("UIPadding");
+       padding.PaddingLeft= UDim.new(0, 10);
+       padding.PaddingRight= UDim.new(0, 10);
+       padding.PaddingTop= UDim.new(0, 5);
+       padding.PaddingBottom= UDim.new(0, 5);
+       padding.Parent= self.NotifyTpl;
+   end;
 
-    Notify = function(self, title, message, color)
-        local notification = self.NotificationTemplate:Clone()
-        notification.Text = title .. "\n" .. message
-        notification.BackgroundColor3 = color or Color3.fromRGB(40, 40, 40)
-        notification.Parent = self.ScreenGui
+   NotifyUser=function(self,title,msg,color )
+      local notify=self.NotifyTpl :Clone ();
+      notify.Text=title.."\n"..msg ;
+      notify.BackgroundColor3=color or Color3.fromRGB (40 ,40 ,40 );
+      notify.Parent=self.SGUINode ;
 
-        -- Animation
-        notification:TweenPosition(
-            UDim2.new(1, -320, 1, -70 - (#self.ScreenGui:GetChildren() - 1) * 60),
-            Enum.EasingDirection.Out,
-            Enum.EasingStyle.Quart,
-            0.5,
-            true
-        )
+      -- Animation 
+      task.spawn (function()
+         notify :TweenPosition (
+             UDim2 .new (1 ,-320 ,1 ,-70 -(#self.SGUINode :GetChildren ()-1 )*60 ),
+             Enum.EasingDirection.Out ,
+             Enum.EasingStyle.Quart ,
+             0.5 ,
+             true 
+         );
 
-        -- Auto-remove after 5 seconds
-        spawn(function()
-            wait(5)
-            notification:TweenPosition(
-                UDim2.new(1, 20, notification.Position.Y.Scale, notification.Position.Y.Offset),
-                Enum.EasingDirection.Out,
-                Enum.EasingStyle.Quart,
-                0.5,
-                true,
-                function()
-                    notification:Destroy()
-                end
-            )
-        end)
-    end
-}
+         -- Auto-remove after 5 seconds 
+         task.wait (5 );
 
-function SafeCall.IsSuspicious(scriptContent)
-    local suspiciousPatterns = {
-        "MarketplaceService",
-        "robux",
-        "DevProduct",
-        "ProductPurchase",
-        "PromptPurchase",
-        "GetRobuxBalance",
-        "PerformPurchase",
-        "RequestPurchase",
-        "httpservice",
-        "syn",
-        "http",
-        "request",
-        "getgenv",
-        "setclipboard",
-        "loadstring",
-        "getfenv",
-        "setfenv"
-    }
+         notify :TweenPosition (
+             UDim2 .new (1 ,20 ,notify.Position.Y.Scale ,notify.Position.Y.Offset ),
+             Enum.EasingDirection.Out ,
+             Enum.EasingStyle.Quart ,
+             0.5 ,
+             true ,
+             function()
+                 notify :Destroy ();
+             end 
+         );
+     end )
+   end ;
+};
 
-    local lowercaseContent = scriptContent:lower()
-    for _, pattern in ipairs(suspiciousPatterns) do
-        if lowercaseContent:find(pattern:lower()) then
-            return true, "Suspicious pattern found: " .. pattern
-        end
-    end
+function SC.IsSusp(scr )
+   local suspPatterns={
+       "MarketplaceService",
+       "robux",
+       "DevProduct",
+       "ProductPurchase",
+       "PromptPurchase",
+       "GetRobuxBalance",
+       "PerformPurchase",
+       "RequestPurchase",
+       "httpservice",
+       "syn",
+       "http",
+       "request",
+       "getgenv",
+       "setclipboard",
+       "loadstring",
+       "getfenv",
+       "setfenv"
+   };
 
-    if scriptContent:find("string%.char%(") or scriptContent:find("string%.byte%(") then
-        return true, "Potential obfuscation detected"
-    end
+   local lowerSrc=scr :lower ();
+   for _ ,pattern in ipairs(suspPatterns )do 
+      if lowerSrc :find (pattern :lower ())then 
+         return true ,"Suspicious pattern found:"..pattern ;
+     end ;
+   end ;
 
-    -- Check for base64 encoded content
-    if scriptContent:match("^[A-Za-z0-9+/]+={0,2}$") then
-        return true, "Potential base64 encoded content detected"
-    end
+   if scr :find ("string%.char%(" )or scr :find ("string%.byte%(" )then 
+      return true ,"Potential obfuscation detected" ;
+   end ;
 
-    return false
-end
+   -- Check for base64 encoded content 
+   if scr :match ("^[A-Za-z0-9+/]+={0 ,2}$" )then 
+      return true ,"Potential base64 encoded content detected" ;
+   end ;
 
-function SafeCall.Execute(url, options)
-    assert(type(url) == "string" and url:match("^https?://"), SafeCall.Errors.InvalidURL)
-    options = type(options) == "table" and options or {}
+   return false ;
+end ;
 
-    local retryCount = options.RetryCount or SafeCall.Defaults.RetryCount
-    local retryDelay = options.RetryDelay or SafeCall.Defaults.RetryDelay
+function SC.Exec(url ,opts )
+   assert (type (url )=="string" and url :match ("^https?://"),SC.Err.InvalidURL );
+   opts=type (opts )=="table" and opts or{};
 
-    local function fetchAndCheckScript()
-        local success, content = pcall(game.HttpGet, game, url)
-        if not success then
-            SafeCall.GUI:Notify("Fetch Failed", SafeCall.Errors.FetchFailed .. ": " .. tostring(content), Color3.fromRGB(255, 100, 100))
-            return false, SafeCall.Errors.FetchFailed .. ": " .. tostring(content)
-        end
+   local retryCnt=opts.RetryCnt or SC.Def.RetryCnt ;
+   local retryDly=opts.RetryDly or SC.Def.RetryDly ;
 
-        local isSuspicious, reason = SafeCall.IsSuspicious(content)
-        if isSuspicious then
-            SafeCall.AntiVirus:LogDetection(url, reason)
-            SafeCall.AntiVirus:QuarantineScript(url, content)
-            SafeCall.AntiVirus:ScanWorkspace()
-            SafeCall.GUI:Notify("Suspicious Content", SafeCall.Errors.Suspicious .. ": " .. reason, Color3.fromRGB(255, 165, 0))
-            return false, SafeCall.Errors.Suspicious .. ": " .. reason
-        end
+   local function fetchAndChkScr ()
+      local success ,content=pcall (game.HttpGet ,game ,url );
+      if not success then 
+         SC.GUI :NotifyUser ("Fetch Failed",SC.Err.FetchFail..": "..tostring (content ),Color3.fromRGB (255 ,100 ,100 ));
+         return false ,SC.Err.FetchFail..": "..tostring (content );
+     end ;
 
-        return true, content
-    end
+     local isSusp ,reason=SC.IsSusp (content );
+     if isSusp then 
+         SC.AV :LogDet (url ,reason );
+         SC.AV :QuarantineScr (url ,content );
+         SC.AV :ScanWS ();
+         SC.GUI :NotifyUser ("Suspicious Content",SC.Err.Suspicious..": "..reason ,Color3.fromRGB (255 ,165 ,0 ));
+         return false ,SC.Err.Suspicious..": "..reason ;
+     end ;
 
-    local function runScript(content)
-        local success, result = pcall(loadstring(content))
-        if not success then
-            SafeCall.GUI:Notify("Execution Failed", SafeCall.Errors.ExecutionFailed .. ": " .. tostring(result), Color3.fromRGB(255, 100, 100))
-            return false, SafeCall.Errors.ExecutionFailed .. ": " .. tostring(result)
-        end
-        return true, result
-    end
+     return true ,content ;
+end ;
 
-    local function retry(attemptsLeft)
-        local fetchSuccess, fetchResult = fetchAndCheckScript()
-        if not fetchSuccess then
-            if attemptsLeft > 0 then
-                if options.OnRetry then 
-                    options.OnRetry(retryCount - attemptsLeft + 1, fetchResult)
-                end
-                SafeCall.GUI:Notify("Retrying", "Attempt " .. (retryCount - attemptsLeft + 1) .. " of " .. retryCount, Color3.fromRGB(255, 255, 100))
-                wait(retryDelay)
-                return retry(attemptsLeft - 1)
-            else
-                if options.OnError then options.OnError(fetchResult) end
-                return false, fetchResult
-            end
-        end
+local function runScr(content )
+     local success,result=pcall(loadstring(content ));
+     if not success then 
+         SC.GUI:NotifyUser ("Execution Failed",SC.Err.ExecFail..": "..tostring(result ),Color3.fromRGB(255 ,100 ,100 ));
+         return false ,SC.Err.ExecFail..": "..tostring(result );
+     end ;
+     return true,result ;
+end ;
 
-        local runSuccess, runResult = runScript(fetchResult)
-        if runSuccess then
-            if options.OnSuccess then options.OnSuccess(runResult) end
-            SafeCall.GUI:Notify("Success", "Script executed successfully", Color3.fromRGB(100, 255, 100))
-            return true, runResult
-        elseif attemptsLeft > 0 then
-            if options.OnRetry then 
-                options.OnRetry(retryCount - attemptsLeft + 1, runResult)
-            end
-            SafeCall.GUI:Notify("Retrying", "Attempt " .. (retryCount - attemptsLeft + 1) .. " of " .. retryCount, Color3.fromRGB(255, 255, 100))
-            wait(retryDelay)
-            return retry(attemptsLeft - 1)
-        else
-            if options.OnError then options.OnError(runResult) end
-            return false, runResult
-        end
-    end
+local function retry(attemptsLeft )
+     local fetchSuccess,fetchResult=fetchAndChkScr();
+     if not fetchSuccess then 
+         if attemptsLeft >0 then 
+             if opts.OnRetry then 
+                 opts.OnRetry(retryCnt -attemptsLeft +1 ,fetchResult );
+             end ;
+             SC.GUI:NotifyUser ("Retrying","Attempt "..(retryCnt -attemptsLeft +1 ).." of "..retryCnt ,Color3.fromRGB(255 ,255 ,100 ));
+              task.wait(retryDly );
+              return retry(attemptsLeft -1 );
+          else 
+              if opts.OnError then opts.OnError(fetchResult );end ;
+              return false ,fetchResult ;
+          end ;
+      end ;
 
-    if options.ShouldAbort and options.ShouldAbort() then
-        SafeCall.GUI:Notify("Aborted", SafeCall.Errors.Aborted, Color3.fromRGB(255, 165, 0))
-        return false, SafeCall.Errors.Aborted
-    end
+      local runSuccess,runResult=runScr(fetchResult );
+      if runSuccess then 
+          if opts.OnSuccess then opts.OnSuccess(runResult );end ;
+          SC.GUI:NotifyUser ("Success","Script executed successfully",Color3.fromRGB(100 ,255 ,100 ));
+          return true ,runResult ;
+      elseif attemptsLeft >0 then 
+          if opts.OnRetry then 
+              opts.OnRetry(retryCnt -attemptsLeft +1 ,runResult );
+          end ;
+          SC.GUI:NotifyUser ("Retrying","Attempt "..(retryCnt -attemptsLeft +1 ).." of "..retryCnt ,Color3.fromRGB(255 ,255 ,100 ));
+           task.wait(retryDly );
+           return retry(attemptsLeft -1 );
+      else 
+           if opts.OnError then opts.OnError(runResult );end ;
+           return false ,runResult ;
+      end ;
+end ;
 
-    return retry(retryCount)
-end
+if opts.ShouldAbort and opts.ShouldAbort()then 
+     SC.GUI:NotifyUser ("Aborted",SC.Err.Aborted ,Color3.fromRGB(255 ,165 ,0 ));
+     return false ,SC.Err.Aborted ;
+end ;
 
--- Initialize the GUI when the module loads
-SafeCall.GUI:Setup()
+return retry(retryCnt );
+end ;
 
--- Example usage
-local url = "https://example.com/script.lua"
-local options = {
-    RetryCount = 0,
-    RetryDelay = 5,
-    OnSuccess = function(result) print("Success:", result) end,
-    OnError = function(error) warn("Error:", error) end,
-    OnRetry = function(attempt, error) warn("Retry attempt:", attempt, "Error:", error) end,
-    ShouldAbort = function() return false end -- Example abort condition
-}
+-- Initialize the GUI when the module loads 
+SC.GUI:SetupGUI ();
 
-local success, result = SafeCall.Execute(url, options)
-print(success and ("Final result: " .. tostring(result)) or ("Final failure: " .. tostring(result)))
+-- Example usage 
+local url="https://example.com/script.lua";
+local options={
+     RetryCnt=0 ,
+     RetryDly=5 ,
+     OnSuccess=function(result )print ("Success:",result );end ,
+     OnError=function(error )warn ("Error:",error );end ,
+     OnRetry=function(attempt,error )warn ("Retry attempt:",attempt ,"Error:",error );end ,
+     ShouldAbort=function()return false ;end -- Example abort condition 
+};
 
--- To scan all instances, services, functions, variables, and numbers
-SafeCall.AntiVirus:ScanAll()
+local success,result=SC.Exec(url ,options );
+print(success and ("Final result:"..tostring(result ))or ("Final failure:"..tostring(result )));
+
+-- To scan all instances services functions variables and numbers 
+SC.AV:ScanAll ();
