@@ -56,7 +56,7 @@ end)()
 
 end
 
-function NotificationModule.createNotification(title, description, notificationType, duration) description = description or "" duration = duration or 5 notificationType = notificationColors[notificationType] and notificationType or "Info"
+function NotificationModule.Notify(title, description, notificationType, duration) description = description or "" duration = duration or 5 notificationType = notificationColors[notificationType] and notificationType or "Info"
 
 if #notifications >= MAX_NOTIFICATIONS then
     notifications[1]:Destroy()
