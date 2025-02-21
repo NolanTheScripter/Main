@@ -1,6 +1,5 @@
-local TweenService = game:GetService("TweenService")
-local SoundService =
-game:GetService("SoundService")
+local TweenService=game:GetService("TweenService")
+local SoundService=game:GetService("SoundService")
 
 local NotificationModule = {}
 local MAX_NOTIFICATIONS = 5 local notifications = {}
