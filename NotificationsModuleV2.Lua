@@ -143,7 +143,7 @@ end
 function Notification:Notify(Type, Title, Description, Duration, Priority)
     safeCall(function()
         local notificationType = self.Type[Type]
-        
+
         if not notificationType then
             error("Invalid notification type: " .. tostring(Type))
         end
@@ -156,9 +156,9 @@ function Notification:Notify(Type, Title, Description, Duration, Priority)
             screenGui.ResetOnSpawn = false
             screenGui.Parent = playerGui
         end
-        
+
         local notificationContainer = getNotificationContainer(screenGui)
-        
+
         local notificationFrame = createNotificationFrame(notificationType, Title, Description, Priority or 1)
         notificationFrame.Parent = notificationContainer
 
