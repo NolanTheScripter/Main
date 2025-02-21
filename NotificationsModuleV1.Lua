@@ -1,10 +1,8 @@
-local TweenService = game:GetService("TweenService")
-local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService") local SoundService = game:GetService("SoundService") local Players = game:GetService("Players")
 
-local NotificationModule = {}
-local MAX_NOTIFICATIONS = 5 local notifications = {}
+local NotificationModule = {} local MAX_NOTIFICATIONS = 5 local notifications = {}
 
-local function createScreenGui() local screenGui = Instance.new("ScreenGui") screenGui.Name = "NotificationGui" screenGui.ResetOnSpawn = false screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") return screenGui end
+local function createScreenGui() local screenGui = Instance.new("ScreenGui") screenGui.Name = "NotificationGui" screenGui.ResetOnSpawn = false screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") return screenGui end
 
 local screenGui = createScreenGui()
 
@@ -24,7 +22,7 @@ local notificationFrame = createNotificationFrame(screenGui)
 
 local notificationColors = { Info = {bg = Color3.fromRGB(45, 125, 255), text = Color3.new(1, 1, 1)}, Success = {bg = Color3.fromRGB(40, 167, 69), text = Color3.new(1, 1, 1)}, Warning = {bg = Color3.fromRGB(255, 193, 7), text = Color3.new(0, 0, 0)}, Error = {bg = Color3.fromRGB(220, 53, 69), text = Color3.new(1, 1, 1)} }
 
-local function createNotificationTemplate(notificationType) local template = Instance.new("Frame") template.Size = UDim2.new(1, 0, 0.2, 0) template.BackgroundTransparency = 1 template.BorderSizePixel = 0 template.ClipsDescendants = true template.BackgroundColor3 = notificationColors[notificationType].bg
+local function createNotificationTemplate(notificationType) local template = Instance.new("Frame") template.Size = UDim2.new(1, 0, 0.2, 0) template.BackgroundTransparency = 0 template.BorderSizePixel = 0 template.ClipsDescendants = true template.BackgroundColor3 = notificationColors[notificationType].bg
 
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 12)
@@ -43,16 +41,19 @@ local function createTextLabel(parent, position, size, text, textColor) local la
 
 local function playSound() local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://12345678" -- Replace with a valid sound ID sound.Volume = 0.5 sound.Parent = SoundService sound:Play() game:GetService("Debris"):AddItem(sound, 2) end
 
-local function animateNotification(notificationTemplate, titleLabel, descriptionLabel, duration) notificationTemplate.Position = UDim2.new(1.5, 0, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset) local appearTween = TweenService:Create(notificationTemplate, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset), BackgroundTransparency = 0}) appearTween:Play()
+local function animateNotification(notificationTemplate, duration) notificationTemplate.Position = UDim2.new(1.5, 0, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset) local appearTween = TweenService:Create(notificationTemplate, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(1, -20, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset), BackgroundTransparency = 0 }) appearTween:Play()
 
-coroutine.wrap(function()
+task.spawn(function()
     wait(duration)
-    local disappearTween = TweenService:Create(notificationTemplate, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset), BackgroundTransparency = 1})
+    local disappearTween = TweenService:Create(notificationTemplate, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = UDim2.new(1.5, 0, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset),
+        BackgroundTransparency = 1
+    })
     disappearTween:Play()
     disappearTween.Completed:Connect(function()
         notificationTemplate:Destroy()
     end)
-end)()
+end)
 
 end
 
@@ -64,14 +65,13 @@ if #notifications >= MAX_NOTIFICATIONS then
 end
 
 local notificationTemplate = createNotificationTemplate(notificationType)
-local titleLabel = createTextLabel(notificationTemplate, UDim2.new(0, 5, 0, 5), UDim2.new(1, -10, 0.5, -10), title, notificationColors[notificationType].text)
-titleLabel.Font = Enum.Font.GothamBold
-local descriptionLabel = createTextLabel(notificationTemplate, UDim2.new(0, 5, 0.5, 5), UDim2.new(1, -10, 0.5, -10), description, notificationColors[notificationType].text)
+createTextLabel(notificationTemplate, UDim2.new(0, 5, 0, 5), UDim2.new(1, -10, 0.5, -10), title, notificationColors[notificationType].text).Font = Enum.Font.GothamBold
+createTextLabel(notificationTemplate, UDim2.new(0, 5, 0.5, 5), UDim2.new(1, -10, 0.5, -10), description, notificationColors[notificationType].text)
 
 notificationTemplate.Parent = notificationFrame
 table.insert(notifications, notificationTemplate)
 
-animateNotification(notificationTemplate, titleLabel, descriptionLabel, duration)
+animateNotification(notificationTemplate, duration)
 playSound()
 
 notificationTemplate.InputBegan:Connect(function(input)
