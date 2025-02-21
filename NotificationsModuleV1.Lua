@@ -1,7 +1,8 @@
-local TweenService = game:GetService("TweenService") local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+local SoundService =
+game:GetService("SoundService")
 
 local NotificationModule = {}
-
 local MAX_NOTIFICATIONS = 5 local notifications = {}
 
 local function createScreenGui() local screenGui = Instance.new("ScreenGui") screenGui.Name = "NotificationGui" screenGui.ResetOnSpawn = false screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") return screenGui end
