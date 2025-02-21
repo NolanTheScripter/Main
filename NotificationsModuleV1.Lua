@@ -1,4 +1,5 @@
-local TweenService = game:GetService("TweenService") local SoundService = game:GetService("SoundService") local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 
 local NotificationModule = {} local MAX_NOTIFICATIONS = 5 local notifications = {}
 
@@ -39,8 +40,6 @@ end
 
 local function createTextLabel(parent, position, size, text, textColor) local label = Instance.new("TextLabel") label.Size = size label.Position = position label.BackgroundTransparency = 1 label.Font = Enum.Font.Gotham label.TextScaled = true label.TextColor3 = textColor label.Text = text label.TextXAlignment = Enum.TextXAlignment.Left label.Parent = parent return label end
 
-local function playSound() local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://12345678" -- Replace with a valid sound ID sound.Volume = 0.5 sound.Parent = SoundService sound:Play() game:GetService("Debris"):AddItem(sound, 2) end
-
 local function animateNotification(notificationTemplate, duration) notificationTemplate.Position = UDim2.new(1.5, 0, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset) local appearTween = TweenService:Create(notificationTemplate, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(1, -20, notificationTemplate.Position.Y.Scale, notificationTemplate.Position.Y.Offset), BackgroundTransparency = 0 }) appearTween:Play()
 
 task.spawn(function()
@@ -72,7 +71,6 @@ notificationTemplate.Parent = notificationFrame
 table.insert(notifications, notificationTemplate)
 
 animateNotification(notificationTemplate, duration)
-playSound()
 
 notificationTemplate.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
