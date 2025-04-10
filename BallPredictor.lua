@@ -199,7 +199,6 @@ function BallPredictor.Visualize(ball)
       		     passBeam.Transparency = NumberSequence.new(0.3)
     	  	     passBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 0))
        		     passBeam.LightEmission = 1
-    	  	     passBeam.ZIndex = 2
       		     passBeam.Parent = ball
 
     	  	     BallPredictor.PassLine = {
