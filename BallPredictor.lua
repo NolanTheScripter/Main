@@ -12,6 +12,22 @@ local STEP = 0.05
 local GRAVITY = Vector3.new(0, -Workspace.Gravity, 0)
 local MAX_BOUNCES = 1
 
+local function createSplinePart()
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.Material = Enum.Material.ForceField
+	part.Color = Color3.fromRGB(255, 140, 0)
+	part.Size = Vector3.new(0.15, 0.15, 0.15)
+	part.Transparency = 0.1
+	return part
+end
+
+local splineParts = table.create(60, nil)
+for i = 1, 60 do
+	splineParts[i] = createSplinePart()
+end
+
 -- Dot cache
 local function createDot()
 	local dot = Instance.new("Part")
@@ -151,11 +167,54 @@ function BallPredictor.Visualize(ball)
 		-- Render dot trail
 		renderDots(points)
 
+			-- Render smooth spline parts along the path
+        for i, part in ipairs(splineParts) do
+	            local pt = points[i * 2] -- skip every other point for spacing
+     	        if pt then
+    	     	part.Position = pt
+     	    	part.Parent = Workspace
+        	else
+         	    part.Parent = nil
+            end
+        end
+
 		-- (Optional) Player prediction (can render a sphere if needed)
 		local futurePos = predictPlayerFuture()
 		if futurePos then
 			-- Optional: Draw marker or use for pass prediction
 		end
+
+    if futurePos then
+        if not BallPredictor.PassLine then
+    		       local at1 = Instance.new("Attachment")
+          	   at1.Position = Vector3.zero
+    	  	     at1.Name = "TargetAttachment"
+      		     at1.Parent = Workspace.Terrain
+
+      		     local passBeam = Instance.new("Beam")
+      		     passBeam.Attachment0 = a0
+      		     passBeam.Attachment1 = at1
+      		     passBeam.Width0 = 0.1
+      		     passBeam.Width1 = 0.1
+      		     passBeam.Transparency = NumberSequence.new(0.3)
+    	  	     passBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 0))
+       		     passBeam.LightEmission = 1
+    	  	     passBeam.ZIndex = 2
+      		     passBeam.Parent = ball
+
+    	  	     BallPredictor.PassLine = {
+    	  		       Attachment = at1,
+      			       Beam = passBeam
+      	 	     }
+       end
+    
+       BallPredictor.PassLine.Attachment.WorldPosition = futurePoselse
+    	 if BallPredictor.PassLine then
+        		BallPredictor.PassLine.Attachment.Parent = nil
+		        BallPredictor.PassLine.Beam:Destroy()
+		       BallPredictor.PassLine = nil
+	     end
+     end
 	end)
 end
 
