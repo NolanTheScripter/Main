@@ -52,7 +52,6 @@ function ErrorLogger:showErrorNotification(errorMessage)
     textBox.BackgroundTransparency = 1
     textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     textBox.TextSize = 16
-    textBox.TextAlign = Enum.TextXAlignment.Left
     textBox.Parent = frame
 
     local copyButton = Instance.new("TextButton")
