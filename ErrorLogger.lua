@@ -8,15 +8,17 @@ function ErrorLogger.new()
     return self
 end
 
-function ErrorLogger:logError(errorMessage)
+function ErrorLogger:logError(errorMessage, errorLevel)
+    errorLevel = errorLevel or "Error"  -- Default to "Error" if not specified
     table.insert(self.errors, {
         message = errorMessage,
-        time = os.clock()
+        time = os.clock(),
+        level = errorLevel
     })
-    self:showErrorNotification(errorMessage)
+    self:showErrorNotification(errorMessage, errorLevel)
 end
 
-function ErrorLogger:showErrorNotification(errorMessage)
+function ErrorLogger:showErrorNotification(errorMessage, errorLevel)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "ErrorNotification"
     screenGui.ResetOnSpawn = false
@@ -25,7 +27,7 @@ function ErrorLogger:showErrorNotification(errorMessage)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 0.8 * game:GetService("Workspace").CurrentCamera.ViewportSize.X, 0, 0.2 * game:GetService("Workspace").CurrentCamera.ViewportSize.Y)
     frame.Position = UDim2.new(0.5, -frame.Size.X.Offset / 2, 1, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+    frame.BackgroundColor3 = self:getBackgroundColor(errorLevel)
     frame.BorderSizePixel = 0
     frame.BackgroundTransparency = 0.15
     frame.ClipsDescendants = true
@@ -76,6 +78,13 @@ function ErrorLogger:showErrorNotification(errorMessage)
     closeButton.TextSize = 14
     closeButton.Parent = frame
 
+    local icon = Instance.new("ImageLabel")
+    icon.Size = UDim2.new(0, 30, 0, 30)
+    icon.Position = UDim2.new(0, 10, 0, 10)
+    icon.Image = self:getIconForLevel(errorLevel)
+    icon.Parent = frame
+
+    -- Smooth appearance transition
     frame:TweenPosition(UDim2.new(0.5, -frame.Size.X.Offset / 2, 0.5, -frame.Size.Y.Offset / 2), "Out", "Quad", 0.3, true)
     frame.BackgroundTransparency = 0.8
     frame:TweenBackgroundTransparency(0.2, "Out", "Quad", 0.3, true)
@@ -107,12 +116,33 @@ function ErrorLogger:showErrorNotification(errorMessage)
         screenGui:Destroy()
     end)
 
+    -- Auto hide after 5 seconds
     task.spawn(function()
         wait(5)
         frame:TweenPosition(UDim2.new(0.5, -frame.Size.X.Offset / 2, 1, 0), "Out", "Quad", 0.3, true)
         wait(0.3)
         screenGui:Destroy()
     end)
+end
+
+function ErrorLogger:getBackgroundColor(errorLevel)
+    if errorLevel == "Warning" then
+        return Color3.fromRGB(255, 255, 85)  -- Yellow for warnings
+    elseif errorLevel == "Info" then
+        return Color3.fromRGB(85, 255, 255)  -- Blue for info
+    else
+        return Color3.fromRGB(255, 85, 85)  -- Red for errors
+    end
+end
+
+function ErrorLogger:getIconForLevel(errorLevel)
+    if errorLevel == "Warning" then
+        return "rbxassetid://1234567890"  -- Warning icon
+    elseif errorLevel == "Info" then
+        return "rbxassetid://0987654321"  -- Info icon
+    else
+        return "rbxassetid://1122334455"  -- Error icon
+    end
 end
 
 return ErrorLogger
