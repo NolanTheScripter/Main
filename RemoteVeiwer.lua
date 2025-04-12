@@ -194,3 +194,5 @@ while true do
     viewer:Update()
     task.wait(1)
 end
+
+return RemoteViewer
