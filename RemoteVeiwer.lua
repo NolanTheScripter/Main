@@ -26,7 +26,10 @@ function RemoteViewer:InitializeUI()
     if not self.uiInitialized then
         -- Code to initialize the UI dashboard for monitoring real-time event/function usage
         -- Display graphs, logs, and interactive controls for configuration
+        print("Initializing UI...")
         self.uiInitialized = true
+    else
+        warn("UI has already been initialized. Skipping re-initialization.")
     end
 end
 
@@ -99,9 +102,11 @@ function RemoteViewer:CallRemoteFunction(functionName, ...)
             self:HandleFunctionUsage(functionName)
             return result
         else
-            warn("Error invoking remote function: " .. result)
+            warn("Error invoking remote function: " .. tostring(result))
             self:RetryFunction(functionName, ...)
         end
+    else
+        warn("Remote function '" .. functionName .. "' not found in the function cache.")
     end
 end
 
@@ -113,9 +118,11 @@ function RemoteViewer:RetryFunction(functionName, ...)
         end)
         if success then
             return result
+        else
+            warn("Retrying function '" .. functionName .. "': Attempt " .. attempt .. " failed.")
         end
-        warn("Retrying function: Attempt " .. attempt)
     end
+    warn("All retry attempts for function '" .. functionName .. "' failed.")
 end
 
 function RemoteViewer:AutoDetectRemotes()
@@ -130,15 +137,35 @@ end
 
 function RemoteViewer:SaveSettings()
     -- Save the settings like learning rate, retry count, etc., to a persistent file or data store
+    print("Settings saved.")
 end
 
 function RemoteViewer:LoadSettings()
-    -- Load the settings from a file or data store
-    return {
+    -- Validate and load the settings from a file or data store
+    local settings = {
         learningRate = 0.1,
         retryCount = 3,
         cacheExpiryTime = 30,
     }
+    if settings.retryCount < 0 then
+        warn("Invalid retry count in settings. Setting to default (3).")
+        settings.retryCount = 3
+    end
+    if settings.cacheExpiryTime <= 0 then
+        warn("Invalid cache expiry time in settings. Setting to default (30).")
+        settings.cacheExpiryTime = 30
+    end
+    return settings
+end
+
+function RemoteViewer:LogUsageStatistics()
+    print("Logging usage statistics...")
+    for eventName, data in pairs(self.eventUsage) do
+        print("Event: " .. eventName .. ", Frequency: " .. data.frequency)
+    end
+    for functionName, data in pairs(self.functionUsage) do
+        print("Function: " .. functionName .. ", Frequency: " .. data.frequency)
+    end
 end
 
 function RemoteViewer:Update()
@@ -149,6 +176,12 @@ function RemoteViewer:Update()
 
     if self.uiInitialized then
         self:UpdateUI()
+    end
+
+    -- Periodically log usage statistics
+    if currentTime - self.lastUpdateTime > 60 then
+        self:LogUsageStatistics()
+        self.lastUpdateTime = currentTime
     end
 end
 
