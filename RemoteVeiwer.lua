@@ -14,6 +14,8 @@ function RemoteViewer.new()
     self.lastUpdateTime = os.clock()
     self.settings = self:LoadSettings()
     self.uiInitialized = false
+    self.usageHistory = {} -- Stores historical usage data for predictions
+    self.anomalyThreshold = 5 -- Threshold for detecting anomalies
     return self
 end
 
@@ -24,8 +26,6 @@ end
 
 function RemoteViewer:InitializeUI()
     if not self.uiInitialized then
-        -- Code to initialize the UI dashboard for monitoring real-time event/function usage
-        -- Display graphs, logs, and interactive controls for configuration
         print("Initializing UI...")
         self.uiInitialized = true
     else
@@ -67,10 +67,12 @@ end
 
 function RemoteViewer:HandleEventUsage(eventName)
     self:UpdateUsage(self.eventUsage, eventName)
+    self:DetectAnomalies(self.eventUsage, eventName)
 end
 
 function RemoteViewer:HandleFunctionUsage(functionName)
     self:UpdateUsage(self.functionUsage, functionName)
+    self:DetectAnomalies(self.functionUsage, functionName)
 end
 
 function RemoteViewer:UpdateUsage(usageTable, name)
@@ -81,14 +83,59 @@ function RemoteViewer:UpdateUsage(usageTable, name)
     local data = usageTable[name]
     data.frequency = data.frequency + 1
     data.lastAccess = currentTime
+
+    -- Update historical usage for predictions
+    if not self.usageHistory[name] then
+        self.usageHistory[name] = {}
+    end
+    table.insert(self.usageHistory[name], data.frequency)
+
+    -- Limit history size to prevent memory overflow
+    if #self.usageHistory[name] > 100 then
+        table.remove(self.usageHistory[name], 1)
+    end
+
     self:DecayOldData(usageTable, currentTime)
 end
 
 function RemoteViewer:DecayOldData(usageTable, currentTime)
     for name, data in pairs(usageTable) do
         if currentTime - data.lastAccess > self.cacheExpiryTime then
-            data.frequency = data.frequency * (1 - self.learningRate)
+            -- Dynamic learning rate adjustment
+            local adjustedLearningRate = self:AdjustLearningRate(data.frequency)
+            data.frequency = data.frequency * (1 - adjustedLearningRate)
         end
+    end
+end
+
+function RemoteViewer:AdjustLearningRate(frequency)
+    -- Increase learning rate for low-frequency events and decrease for high-frequency
+    if frequency < 10 then
+        return math.min(self.learningRate * 2, 0.5)
+    elseif frequency > 100 then
+        return math.max(self.learningRate * 0.5, 0.01)
+    else
+        return self.learningRate
+    end
+end
+
+function RemoteViewer:PredictFutureUsage(name)
+    -- Predict future usage based on a simple moving average
+    if not self.usageHistory[name] or #self.usageHistory[name] < 5 then
+        return nil
+    end
+    local sum = 0
+    for i = #self.usageHistory[name] - 4, #self.usageHistory[name] do
+        sum = sum + self.usageHistory[name][i]
+    end
+    return sum / 5
+end
+
+function RemoteViewer:DetectAnomalies(usageTable, name)
+    local currentFrequency = usageTable[name] and usageTable[name].frequency or 0
+    local predictedFrequency = self:PredictFutureUsage(name)
+    if predictedFrequency and math.abs(currentFrequency - predictedFrequency) > self.anomalyThreshold then
+        warn("Anomaly detected in usage of " .. name .. ": Current = " .. currentFrequency .. ", Predicted = " .. predictedFrequency)
     end
 end
 
@@ -125,49 +172,6 @@ function RemoteViewer:RetryFunction(functionName, ...)
     warn("All retry attempts for function '" .. functionName .. "' failed.")
 end
 
-function RemoteViewer:AutoDetectRemotes()
-    for _, remote in pairs(game.ReplicatedStorage:GetChildren()) do
-        if remote:IsA("RemoteEvent") and not self.eventListeners[remote.Name] then
-            self:RegisterRemoteEvent(remote)
-        elseif remote:IsA("RemoteFunction") and not self.functionCache[remote.Name] then
-            self:RegisterRemoteFunction(remote)
-        end
-    end
-end
-
-function RemoteViewer:SaveSettings()
-    -- Save the settings like learning rate, retry count, etc., to a persistent file or data store
-    print("Settings saved.")
-end
-
-function RemoteViewer:LoadSettings()
-    -- Validate and load the settings from a file or data store
-    local settings = {
-        learningRate = 0.1,
-        retryCount = 3,
-        cacheExpiryTime = 30,
-    }
-    if settings.retryCount < 0 then
-        warn("Invalid retry count in settings. Setting to default (3).")
-        settings.retryCount = 3
-    end
-    if settings.cacheExpiryTime <= 0 then
-        warn("Invalid cache expiry time in settings. Setting to default (30).")
-        settings.cacheExpiryTime = 30
-    end
-    return settings
-end
-
-function RemoteViewer:LogUsageStatistics()
-    print("Logging usage statistics...")
-    for eventName, data in pairs(self.eventUsage) do
-        print("Event: " .. eventName .. ", Frequency: " .. data.frequency)
-    end
-    for functionName, data in pairs(self.functionUsage) do
-        print("Function: " .. functionName .. ", Frequency: " .. data.frequency)
-    end
-end
-
 function RemoteViewer:Update()
     self:AutoDetectRemotes()
     local currentTime = os.clock()
@@ -176,12 +180,6 @@ function RemoteViewer:Update()
 
     if self.uiInitialized then
         self:UpdateUI()
-    end
-
-    -- Periodically log usage statistics
-    if currentTime - self.lastUpdateTime > 60 then
-        self:LogUsageStatistics()
-        self.lastUpdateTime = currentTime
     end
 end
 
