@@ -1,113 +1,176 @@
-local NotificationModule = {}
+-- Dragnir Ultra Notification System v1.0
 local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local activeNotifications = {} -- Tracks active notifications for stacking
+-- Configuration
+local Config = {
+    Font = Enum.Font.GothamBold,
+    CornerRadius = UDim.new(0, 8),
+    Colors = {
+        Success = Color3.fromRGB(60, 220, 130),
+        Error = Color3.fromRGB(255, 75, 75),
+        Warning = Color3.fromRGB(255, 200, 80),
+        Info = Color3.fromRGB(85, 170, 255),
+        Fail = Color3.fromRGB(120, 120, 120),
+    },
+    DefaultDuration = 7,
+    MaxVisibleNotifications = 5,
+}
 
-local function calculateSize(Content)
-    local baseWidth = 300
-    local baseHeight = 100
-    local extraWidthPerChar = 5
-    local extraHeightPerLine = 20
-    local lineWidth = 50 -- Characters per line before wrapping
+-- Rate Limiter
+local RateLimiter = {
+    Enabled = true,
+    Cooldown = 1.5,
+    PerTypeCooldown = {
+        ["Error"] = 2,
+        ["Success"] = 0.5,
+        ["Fail"] = 3,
+        ["Warning"] = 1,
+        ["Info"] = 1,
+        ["Custom"] = 0.8,
+    },
+    LastSent = {}
+}
 
-    local lines = math.ceil(#Content / lineWidth)
-    local width = math.min(baseWidth + (#Content * extraWidthPerChar), 500)
-    local height = baseHeight + ((lines - 1) * extraHeightPerLine)
-
-    return width, height
+-- Helper Functions
+local function CanSendNotification(notificationType)
+    if not RateLimiter.Enabled then return true end
+    local now = tick()
+    local lastTime = RateLimiter.LastSent[notificationType] or 0
+    local cooldown = RateLimiter.PerTypeCooldown[notificationType] or RateLimiter.Cooldown
+    if now - lastTime >= cooldown then
+        RateLimiter.LastSent[notificationType] = now
+        return true
+    end
+    return false
 end
 
-local function CreateNotification(Title, Content, Duration, Image)
-    local ScreenGui = CoreGui:FindFirstChild("NotificationGui") or Instance.new("ScreenGui")
-    ScreenGui.Name = "NotificationGui"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+local function PlayAnimation(object, properties, duration)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(object, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
 
-    local width, height = calculateSize(Content)
+-- UI Initialization
+local DragnirNotificationGui = Instance.new("ScreenGui")
+DragnirNotificationGui.Name = "DragnirNotificationGui"
+DragnirNotificationGui.IgnoreGuiInset = true
+DragnirNotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+DragnirNotificationGui.ResetOnSpawn = false
+DragnirNotificationGui.DisplayOrder = 1000
+DragnirNotificationGui.Parent = PlayerGui
 
-    -- Calculate the position for stacking notifications
-    local notificationIndex = #activeNotifications + 1
-    local verticalOffset = (notificationIndex - 1) * (height + 10) -- 10px padding between notifications
+local NotificationContainer = Instance.new("ScrollingFrame")
+NotificationContainer.Name = "NotificationContainer"
+NotificationContainer.Size = UDim2.new(0.3, 0, 0.8, 0)
+NotificationContainer.Position = UDim2.new(0.7, 0, 0.1, 0)
+NotificationContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+NotificationContainer.ScrollBarThickness = 6
+NotificationContainer.BackgroundTransparency = 1
+NotificationContainer.Parent = DragnirNotificationGui
 
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.Parent = NotificationContainer
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingTop = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.Parent = NotificationContainer
+
+-- Notification System
+local Notification = {}
+
+function Notification:Create(config)
+    if not CanSendNotification(config.Type) then return end
+
+    -- Create Notification Frame
     local NotificationFrame = Instance.new("Frame")
-    NotificationFrame.Size = UDim2.new(0, width, 0, height)
-    NotificationFrame.Position = UDim2.new(1, -width - 20, 1, -height - 20 - verticalOffset) -- Bottom-right corner with padding
-    NotificationFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    NotificationFrame.Name = "NotificationFrame"
+    NotificationFrame.Size = UDim2.new(1, 0, 0, 100)
+    NotificationFrame.BackgroundColor3 = config.Color or Config.Colors[config.Type] or Config.Colors.Info
     NotificationFrame.BorderSizePixel = 0
-    NotificationFrame.AnchorPoint = Vector2.new(1, 1) -- Right-bottom anchor
-    NotificationFrame.BackgroundTransparency = 0.2
-    NotificationFrame.Visible = true
-    NotificationFrame.Parent = ScreenGui
+    NotificationFrame.Parent = NotificationContainer
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.CornerRadius = Config.CornerRadius
     UICorner.Parent = NotificationFrame
 
     local UIStroke = Instance.new("UIStroke")
-    UIStroke.Color = Color3.fromRGB(255, 255, 255)
     UIStroke.Thickness = 2
-    UIStroke.Transparency = 0.7
+    UIStroke.Color = Color3.fromRGB(255, 255, 255)
     UIStroke.Parent = NotificationFrame
 
+    -- Title Label
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -50, 0.35, 0)
-    TitleLabel.Position = UDim2.new(0, 50, 0, 10)
-    TitleLabel.Text = Title
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Size = UDim2.new(1, -40, 0.3, 0)
+    TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+    TitleLabel.Font = Config.Font
+    TitleLabel.Text = config.Title or "Notification"
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.TextScaled = true
-    TitleLabel.Font = Enum.Font.GothamBold
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.BackgroundTransparency = 1
     TitleLabel.Parent = NotificationFrame
 
-    local ContentLabel = Instance.new("TextLabel")
-    ContentLabel.Size = UDim2.new(1, -50, 0.55, -15)
-    ContentLabel.Position = UDim2.new(0, 50, 0.35, 5)
-    ContentLabel.Text = Content
-    ContentLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    ContentLabel.BackgroundTransparency = 1
-    ContentLabel.TextScaled = true
-    ContentLabel.Font = Enum.Font.Gotham
-    ContentLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ContentLabel.TextWrapped = true
-    ContentLabel.Parent = NotificationFrame
+    -- Message Label
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Name = "MessageLabel"
+    MessageLabel.Size = UDim2.new(1, -20, 0.6, 0)
+    MessageLabel.Position = UDim2.new(0, 10, 0.35, 0)
+    MessageLabel.Text = config.Message or ""
+    MessageLabel.TextWrapped = true
+    MessageLabel.Font = Enum.Font.Gotham
+    MessageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Parent = NotificationFrame
 
-    local Icon = Instance.new("ImageLabel")
-    Icon.Size = UDim2.new(0, 40, 0, 40)
-    Icon.Position = UDim2.new(0, 10, 0.5, -20)
-    Icon.Image = Image
-    Icon.BackgroundTransparency = 1
-    Icon.Parent = NotificationFrame
+    -- Close Button
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Position = UDim2.new(1, -30, 0, 10)
+    CloseButton.Text = "X"
+    CloseButton.Font = Config.Font
+    CloseButton.TextColor3 = Color3.fromRGB(255, 75, 75)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    CloseButton.Parent = NotificationFrame
 
-    table.insert(activeNotifications, NotificationFrame) -- Track active notifications
+    local CloseUICorner = Instance.new("UICorner")
+    CloseUICorner.CornerRadius = UDim.new(0, 4)
+    CloseUICorner.Parent = CloseButton
 
-    local function FadeOutNotification()
-        local tween = TweenService:Create(NotificationFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1, Position = NotificationFrame.Position + UDim2.new(0, 0, 0.1, 0)})
-        tween:Play()
-        tween.Completed:Wait()
-        NotificationFrame:Destroy()
-        table.remove(activeNotifications, table.find(activeNotifications, NotificationFrame)) -- Remove from tracking
+    -- Entry Animation
+    NotificationFrame.Position = UDim2.new(1, 0, 0, 0)
+    PlayAnimation(NotificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.5)
 
-        -- Reposition remaining notifications
-        for i, notif in ipairs(activeNotifications) do
-            local newVerticalOffset = (i - 1) * (notif.Size.Y.Offset + 10)
-            TweenService:Create(notif, TweenInfo.new(0.3), {Position = UDim2.new(1, -notif.Size.X.Offset - 20, 1, -notif.Size.Y.Offset - 20 - newVerticalOffset)}):Play()
-        end
-    end
-
-    local function AutoCloseNotification()
-        task.delay(Duration, function()
-            FadeOutNotification()
+    -- Auto-Dismiss
+    if not config.Sticky then
+        task.delay(config.Duration or Config.DefaultDuration, function()
+            Notification:Dismiss(NotificationFrame)
         end)
     end
 
-    TweenService:Create(NotificationFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = NotificationFrame.Position - UDim2.new(0, 0, 0.05, 0)}):Play()
-    AutoCloseNotification()
+    -- Close Button Functionality
+    CloseButton.MouseButton1Click:Connect(function()
+        Notification:Dismiss(NotificationFrame)
+        if config.OnDismiss then
+            config.OnDismiss()
+        end
+    end)
 end
 
-function NotificationModule:Notify(Title, Content, Duration, Image)
-    CreateNotification(Title, Content, Duration, Image)
+function Notification:Dismiss(frame)
+    -- Exit Animation
+    local tween = PlayAnimation(frame, {BackgroundTransparency = 1}, 0.5)
+    tween.Completed:Connect(function()
+        frame:Destroy()
+    end)
 end
 
-return NotificationModule
+return Notification
