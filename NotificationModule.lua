@@ -1,321 +1,186 @@
--- Dragnir Ultra Notification System v3.1 (Auto-Detect Localization)
-local TweenService = game:GetService("TweenService")
-local Players = game:GetService("Players")
-local LocalizationService = game:GetService("LocalizationService")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local UserInputService = game:GetService("UserInputService")
-local HapticService = game:GetService("HapticService")
+local Notification = {}
 
--- Configuration
-local Config = {
-    Font = Enum.Font.GothamBold,
-    CornerRadius = UDim.new(0, 8),
-    Colors = {
-        Success = Color3.fromRGB(60, 220, 130),
-        Error = Color3.fromRGB(255, 75, 75),
-        Warning = Color3.fromRGB(255, 200, 80),
-        Info = Color3.fromRGB(85, 170, 255),
-        Fail = Color3.fromRGB(120, 120, 120),
-    },
-    Sounds = {
-        Success = "rbxassetid://123456789",
-        Error = "rbxassetid://987654321",
-        Warning = "rbxassetid://456789123",
-    },
-    DefaultDuration = 7,
-    MaxVisibleNotifications = 5,
-    StackingDirection = "Vertical", -- Options: "Vertical", "Horizontal"
-    DebugMode = false, -- Developer mode for testing notifications
-    Localization = {
-        en = { -- English
-            Success = "Success",
-            Error = "Error",
-            Warning = "Warning",
-            Info = "Info",
-            Fail = "Fail",
-        },
-        es = { -- Spanish
-            Success = "Éxito",
-            Error = "Error",
-            Warning = "Advertencia",
-            Info = "Información",
-            Fail = "Fallo",
-        },
-        fr = { -- French
-            Success = "Succès",
-            Error = "Erreur",
-            Warning = "Avertissement",
-            Info = "Info",
-            Fail = "Échec",
-        },
-        de = { -- German
-            Success = "Erfolg",
-            Error = "Fehler",
-            Warning = "Warnung",
-            Info = "Info",
-            Fail = "Fehlschlag",
-        },
-        zh = { -- Chinese (Simplified)
-            Success = "成功",
-            Error = "错误",
-            Warning = "警告",
-            Info = "信息",
-            Fail = "失败",
-        },
-        ru = { -- Russian
-            Success = "Успех",
-            Error = "Ошибка",
-            Warning = "Предупреждение",
-            Info = "Информация",
-            Fail = "Неудача",
-        },
-        pt = { -- Portuguese
-            Success = "Sucesso",
-            Error = "Erro",
-            Warning = "Aviso",
-            Info = "Informação",
-            Fail = "Falha",
-        },
-        ar = { -- Arabic
-            Success = "نجاح",
-            Error = "خطأ",
-            Warning = "تحذير",
-            Info = "معلومة",
-            Fail = "فشل",
-        },
-        hi = { -- Hindi
-            Success = "सफलता",
-            Error = "त्रुटि",
-            Warning = "चेतावनी",
-            Info = "जानकारी",
-            Fail = "विफल",
-        },
-        ja = { -- Japanese
-            Success = "成功",
-            Error = "エラー",
-            Warning = "警告",
-            Info = "情報",
-            Fail = "失敗",
-        },
-    },
-    DefaultLanguage = "en", -- Fallback language
-    Language = nil -- Detected language will be stored here
+-- Configuration (can be modified or externally accessed)
+local Config = require(game.ServerStorage:WaitForChild("NotificationConfig"))
+
+-- Internal Rate Limiter
+local RateLimiter = {
+    LastTypeSent = {},
+    GlobalTimestamps = {}
 }
 
--- Helper Functions
-local function DetectLanguage()
-    local detectedLanguage
-    pcall(function()
-        detectedLanguage = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-    end)
+-- Helper: Create Notification Template
+local function createNotificationTemplate()
+    local template = Instance.new("Frame")
+    template.Name = "NotificationTemplate"
+    template.Size = UDim2.new(0, 350, 0, 70)
+    template.BackgroundTransparency = 0.8
+    template.BackgroundColor3 = Config.Colors.Success
+    template.BorderSizePixel = 0
+    template.ClipsDescendants = true
 
-    if detectedLanguage and Config.Localization[detectedLanguage] then
-        return detectedLanguage
-    else
-        return Config.DefaultLanguage -- Fallback to default language
-    end
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = Config.CornerRadius
+    corner.Parent = template
+
+    local icon = Instance.new("ImageLabel")
+    icon.Size = UDim2.new(0, 40, 0, 40)
+    icon.Position = UDim2.new(0, 10, 0.5, -20)
+    icon.BackgroundTransparency = 1
+    icon.Parent = template
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 250, 0, 25)
+    title.Position = UDim2.new(0, 60, 0, 5)
+    title.Text = "Notification Title"
+    title.Font = Config.Fonts.Title
+    title.TextSize = 18
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = template
+
+    local message = Instance.new("TextLabel")
+    message.Size = UDim2.new(0, 250, 0, 30)
+    message.Position = UDim2.new(0, 60, 0, 30)
+    message.Text = "This is a notification message."
+    message.Font = Config.Fonts.Message
+    message.TextSize = 14
+    message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    message.BackgroundTransparency = 1
+    message.TextWrapped = true
+    message.TextXAlignment = Enum.TextXAlignment.Left
+    message.Parent = template
+
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -40, 0, 10)
+    closeButton.Text = "X"
+    closeButton.Font = Enum.Font.Gotham
+    closeButton.TextSize = 16
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    closeButton.BackgroundTransparency = 0.6
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = template
+
+    return template, icon, title, message, closeButton
 end
 
-local function Localize(key)
-    local language = Config.Language or Config.DefaultLanguage
-    return Config.Localization[language][key] or key
-end
+-- Helper: Setup Progress Bar
+local function setupProgressBar(notification, duration)
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(1, 0, 0, 5)
+    progressBar.Position = UDim2.new(0, 0, 1, -5)
+    progressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressBar.BackgroundTransparency = 0.6
+    progressBar.Parent = notification
 
-local function PlayAnimation(object, properties, duration, easingStyle)
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle[easingStyle] or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(object, tweenInfo, properties)
+    local tween = game:GetService("TweenService"):Create(
+        progressBar,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        { Size = UDim2.new(0, 0, 0, 5) }
+    )
     tween:Play()
     return tween
 end
 
-local function PlaySound(soundId)
+-- Helper: Setup Sound Playback
+local function setupSound(notification, soundId)
     if soundId then
         local sound = Instance.new("Sound")
         sound.SoundId = soundId
-        sound.Volume = 1
-        sound.Parent = workspace
+        sound.Parent = notification
         sound:Play()
-        sound.Ended:Connect(function()
-            sound:Destroy()
+    end
+end
+
+-- Helper: Animate Entry/Exit
+local function animateNotification(notification, show)
+    local goal = show and UDim2.new(0, 0, 0, 70) or UDim2.new(-1, 0, 0, notification.Position.Y.Offset)
+    local tween = game:GetService("TweenService"):Create(
+        notification,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quint),
+        { Position = goal }
+    )
+    tween:Play()
+    return tween
+end
+
+-- Function to send notifications
+function Notification:Send(options)
+    -- Check rate limit first
+    if not self:CanSend(options.Type) then
+        warn("Notification rate limit exceeded for type:", options.Type)
+        return
+    end
+
+    -- Set up the notification display
+    local screenGui = game.Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("DragnirNotificationGui")
+    local container = screenGui:WaitForChild("NotificationContainer")
+    local notification, icon, title, message, closeButton = createNotificationTemplate()
+
+    -- Assign values based on the options provided
+    title.Text = options.Title or "Notification"
+    message.Text = options.Message or "This is a notification."
+    icon.Image = Config.Icons[options.Type] or Config.Icons["Default"]
+    notification.BackgroundColor3 = Config.Colors[options.Type] or Config.Colors.Success
+
+    -- Close button functionality
+    closeButton.MouseButton1Click:Connect(function()
+        animateNotification(notification, false):Completed:Connect(function()
+            notification:Destroy()
+            if options.OnDismiss then
+                options.OnDismiss()
+            end
+        end)
+    end)
+
+    -- Add the notification to the container
+    notification.Parent = container
+
+    -- Optional: Add progress bar animation
+    if options.Duration then
+        setupProgressBar(notification, options.Duration).Completed:Connect(function()
+            animateNotification(notification, false):Completed:Connect(function()
+                notification:Destroy()
+            end)
         end)
     end
-end
 
-local function TriggerHapticFeedback()
-    if UserInputService.TouchEnabled and HapticService:IsMotorSupported(Enum.UserInputType.Touch) then
-        HapticService:SetMotor(Enum.UserInputType.Touch, Enum.VibrationMotor.Small, 0.5)
-    end
-end
-
--- Initialize Language
-Config.Language = DetectLanguage()
-
--- UI Initialization
-local DragnirNotificationGui = Instance.new("ScreenGui")
-DragnirNotificationGui.Name = "DragnirNotificationGui"
-DragnirNotificationGui.IgnoreGuiInset = true
-DragnirNotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-DragnirNotificationGui.ResetOnSpawn = false
-DragnirNotificationGui.DisplayOrder = 1000
-DragnirNotificationGui.Parent = PlayerGui
-
-local NotificationContainer = Instance.new("ScrollingFrame")
-NotificationContainer.Name = "NotificationContainer"
-NotificationContainer.Size = UDim2.new(0.3, 0, 0.8, 0)
-NotificationContainer.Position = UDim2.new(0.7, 0, 0.1, 0)
-NotificationContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-NotificationContainer.ScrollBarThickness = 6
-NotificationContainer.BackgroundTransparency = 1
-NotificationContainer.Parent = DragnirNotificationGui
-
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 10)
-UIListLayout.FillDirection = Config.StackingDirection == "Horizontal" and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
-UIListLayout.Parent = NotificationContainer
-
-local UIPadding = Instance.new("UIPadding")
-UIPadding.PaddingTop = UDim.new(0, 10)
-UIPadding.PaddingRight = UDim.new(0, 10)
-UIPadding.Parent = NotificationContainer
-
--- Notification System
-local Notification = {}
-
-function Notification:Create(config)
-    -- Create Notification Frame
-    local NotificationFrame = Instance.new("Frame")
-    NotificationFrame.Name = "NotificationFrame"
-    NotificationFrame.Size = Config.CompactMode and UDim2.new(1, 0, 0, 50) or UDim2.new(1, 0, 0, 100)
-    NotificationFrame.BackgroundTransparency = 0
-    NotificationFrame.BackgroundColor3 = config.Color or Config.Colors[config.Type] or Config.Colors.Info
-    NotificationFrame.BorderSizePixel = 0
-    NotificationFrame.Parent = NotificationContainer
-
-    -- Add rounded corners
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = Config.CornerRadius
-    UICorner.Parent = NotificationFrame
-
-    -- Add shadow effect
-    local Shadow = Instance.new("ImageLabel")
-    Shadow.Name = "Shadow"
-    Shadow.Size = UDim2.new(1, 10, 1, 10)
-    Shadow.Position = UDim2.new(0, -5, 0, -5)
-    Shadow.Image = "rbxassetid://1316045217" -- Shadow asset
-    Shadow.ImageTransparency = 0.5
-    Shadow.ScaleType = Enum.ScaleType.Slice
-    Shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-    Shadow.BackgroundTransparency = 1
-    Shadow.ZIndex = -1
-    Shadow.Parent = NotificationFrame
-
-    -- Create gradient background
-    local UIGradient = Instance.new("UIGradient")
-    UIGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    UIGradient.Rotation = 90
-    UIGradient.Parent = NotificationFrame
-
-    -- Title Label
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Name = "TitleLabel"
-    TitleLabel.Size = UDim2.new(1, -40, 0.3, 0)
-    TitleLabel.Position = UDim2.new(0, 10, 0, 10)
-    TitleLabel.Font = Config.Font
-    TitleLabel.Text = config.Title or Localize(config.Type) or "Notification"
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.TextScaled = true
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Parent = NotificationFrame
-
-    -- Message Label
-    local MessageLabel = Instance.new("TextLabel")
-    MessageLabel.Name = "MessageLabel"
-    MessageLabel.Size = UDim2.new(1, -20, 0.5, 0)
-    MessageLabel.Position = UDim2.new(0, 10, 0.4, 0)
-    MessageLabel.Font = Enum.Font.Gotham
-    MessageLabel.Text = config.Message or "This is a notification message."
-    MessageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    MessageLabel.TextWrapped = true
-    MessageLabel.TextScaled = true
-    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
-    MessageLabel.BackgroundTransparency = 1
-    MessageLabel.Parent = NotificationFrame
-
-    -- Icon (optional)
-    if config.Icon then
-        local Icon = Instance.new("ImageLabel")
-        Icon.Name = "Icon"
-        Icon.Size = UDim2.new(0, 50, 0, 50)
-        Icon.Position = UDim2.new(0, 10, 0.5, -25)
-        Icon.Image = config.Icon
-        Icon.BackgroundTransparency = 1
-        Icon.Parent = NotificationFrame
-    end
-
-    -- Close Button
-    local CloseButton = Instance.new("TextButton")
-    CloseButton.Name = "CloseButton"
-    CloseButton.Size = UDim2.new(0, 20, 0, 20)
-    CloseButton.Position = UDim2.new(1, -30, 0, 10)
-    CloseButton.Text = "X"
-    CloseButton.Font = Config.Font
-    CloseButton.TextColor3 = Color3.fromRGB(255, 75, 75)
-    CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    CloseButton.Parent = NotificationFrame
-
-    -- Add hover animation to CloseButton
-    local UICloseCorner = Instance.new("UICorner")
-    UICloseCorner.CornerRadius = UDim.new(0, 5)
-    UICloseCorner.Parent = CloseButton
-
-    CloseButton.MouseEnter:Connect(function()
-        CloseButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    end)
-    CloseButton.MouseLeave:Connect(function()
-        CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    end)
-
-    -- Progress Indicator (optional)
-    local ProgressBar = Instance.new("Frame")
-    ProgressBar.Name = "ProgressBar"
-    ProgressBar.Size = UDim2.new(1, 0, 0, 5)
-    ProgressBar.Position = UDim2.new(0, 0, 1, -5)
-    ProgressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    ProgressBar.Parent = NotificationFrame
-
-    local ProgressCorner = Instance.new("UICorner")
-    ProgressCorner.CornerRadius = UDim.new(0, 5)
-    ProgressCorner.Parent = ProgressBar
-
-    -- Animate ProgressBar
-    if not config.Sticky then
-        local duration = config.Duration or 5
-        ProgressBar:TweenSize(
-            UDim2.new(0, 0, 0, 5),
-            Enum.EasingDirection.Out,
-            Enum.EasingStyle.Linear,
-            duration,
-            true,
-            function()
-                NotificationFrame:Destroy() -- Auto-destroy after animation
-            end
-        )
-    end
+    -- Optional: Sound Feedback
+    setupSound(notification, options.Sound)
 
     -- Entry Animation
-    NotificationFrame.Position = UDim2.new(1, 0, 0, 0)
-    PlayAnimation(NotificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.5)
+    notification.Position = UDim2.new(-1, 0, 0, #container:GetChildren() * 80)
+    animateNotification(notification, true)
+end
 
-    -- Dismiss functionality
-    CloseButton.MouseButton1Click:Connect(function()
-        self:Dismiss(NotificationFrame)
-    end)
+-- Rate limiter logic
+function Notification:CanSend(type)
+    if not Config.RateLimiter.Enabled then return true end
+    local now = os.clock()
+
+    -- Global flood check
+    table.insert(RateLimiter.GlobalTimestamps, now)
+    for i = #RateLimiter.GlobalTimestamps, 1, -1 do
+        if now - RateLimiter.GlobalTimestamps[i] > 1 then
+            table.remove(RateLimiter.GlobalTimestamps, i)
+        end
+    end
+    if #RateLimiter.GlobalTimestamps > Config.RateLimiter.MaxPerSecond then
+        return false
+    end
+
+    -- Per-type cooldown
+    local last = RateLimiter.LastTypeSent[type] or 0
+    local cooldown = Config.RateLimiter.PerTypeCooldown[type] or Config.RateLimiter.Cooldown
+    if now - last < cooldown then
+        return false
+    end
+
+    RateLimiter.LastTypeSent[type] = now
+    return true
 end
 
 return Notification
