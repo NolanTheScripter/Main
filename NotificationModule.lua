@@ -184,5 +184,138 @@ UIPadding.Parent = NotificationContainer
 local Notification = {}
 
 function Notification:Create(config)
-    
+    -- Create Notification Frame
+    local NotificationFrame = Instance.new("Frame")
+    NotificationFrame.Name = "NotificationFrame"
+    NotificationFrame.Size = Config.CompactMode and UDim2.new(1, 0, 0, 50) or UDim2.new(1, 0, 0, 100)
+    NotificationFrame.BackgroundTransparency = 0
+    NotificationFrame.BackgroundColor3 = config.Color or Config.Colors[config.Type] or Config.Colors.Info
+    NotificationFrame.BorderSizePixel = 0
+    NotificationFrame.Parent = NotificationContainer
+
+    -- Add rounded corners
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = Config.CornerRadius
+    UICorner.Parent = NotificationFrame
+
+    -- Add shadow effect
+    local Shadow = Instance.new("ImageLabel")
+    Shadow.Name = "Shadow"
+    Shadow.Size = UDim2.new(1, 10, 1, 10)
+    Shadow.Position = UDim2.new(0, -5, 0, -5)
+    Shadow.Image = "rbxassetid://1316045217" -- Shadow asset
+    Shadow.ImageTransparency = 0.5
+    Shadow.ScaleType = Enum.ScaleType.Slice
+    Shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    Shadow.BackgroundTransparency = 1
+    Shadow.ZIndex = -1
+    Shadow.Parent = NotificationFrame
+
+    -- Create gradient background
+    local UIGradient = Instance.new("UIGradient")
+    UIGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    UIGradient.Rotation = 90
+    UIGradient.Parent = NotificationFrame
+
+    -- Title Label
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Size = UDim2.new(1, -40, 0.3, 0)
+    TitleLabel.Position = UDim2.new(0, 10, 0, 10)
+    TitleLabel.Font = Config.Font
+    TitleLabel.Text = config.Title or Localize(config.Type) or "Notification"
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextScaled = true
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Parent = NotificationFrame
+
+    -- Message Label
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Name = "MessageLabel"
+    MessageLabel.Size = UDim2.new(1, -20, 0.5, 0)
+    MessageLabel.Position = UDim2.new(0, 10, 0.4, 0)
+    MessageLabel.Font = Enum.Font.Gotham
+    MessageLabel.Text = config.Message or "This is a notification message."
+    MessageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    MessageLabel.TextWrapped = true
+    MessageLabel.TextScaled = true
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Parent = NotificationFrame
+
+    -- Icon (optional)
+    if config.Icon then
+        local Icon = Instance.new("ImageLabel")
+        Icon.Name = "Icon"
+        Icon.Size = UDim2.new(0, 50, 0, 50)
+        Icon.Position = UDim2.new(0, 10, 0.5, -25)
+        Icon.Image = config.Icon
+        Icon.BackgroundTransparency = 1
+        Icon.Parent = NotificationFrame
+    end
+
+    -- Close Button
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Position = UDim2.new(1, -30, 0, 10)
+    CloseButton.Text = "X"
+    CloseButton.Font = Config.Font
+    CloseButton.TextColor3 = Color3.fromRGB(255, 75, 75)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    CloseButton.Parent = NotificationFrame
+
+    -- Add hover animation to CloseButton
+    local UICloseCorner = Instance.new("UICorner")
+    UICloseCorner.CornerRadius = UDim.new(0, 5)
+    UICloseCorner.Parent = CloseButton
+
+    CloseButton.MouseEnter:Connect(function()
+        CloseButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end)
+    CloseButton.MouseLeave:Connect(function()
+        CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end)
+
+    -- Progress Indicator (optional)
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.Name = "ProgressBar"
+    ProgressBar.Size = UDim2.new(1, 0, 0, 5)
+    ProgressBar.Position = UDim2.new(0, 0, 1, -5)
+    ProgressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ProgressBar.Parent = NotificationFrame
+
+    local ProgressCorner = Instance.new("UICorner")
+    ProgressCorner.CornerRadius = UDim.new(0, 5)
+    ProgressCorner.Parent = ProgressBar
+
+    -- Animate ProgressBar
+    if not config.Sticky then
+        local duration = config.Duration or 5
+        ProgressBar:TweenSize(
+            UDim2.new(0, 0, 0, 5),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Linear,
+            duration,
+            true,
+            function()
+                NotificationFrame:Destroy() -- Auto-destroy after animation
+            end
+        )
+    end
+
+    -- Entry Animation
+    NotificationFrame.Position = UDim2.new(1, 0, 0, 0)
+    PlayAnimation(NotificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.5)
+
+    -- Dismiss functionality
+    CloseButton.MouseButton1Click:Connect(function()
+        self:Dismiss(NotificationFrame)
+    end)
+end
+
 return Notification
