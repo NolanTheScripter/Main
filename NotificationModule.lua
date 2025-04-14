@@ -2,12 +2,14 @@ local NotificationModule = {}
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
+local activeNotifications = {} -- Tracks active notifications for stacking
+
 local function calculateSize(Content)
     local baseWidth = 300
     local baseHeight = 100
     local extraWidthPerChar = 5
     local extraHeightPerLine = 20
-    local lineWidth = 50 
+    local lineWidth = 50 -- Characters per line before wrapping
 
     local lines = math.ceil(#Content / lineWidth)
     local width = math.min(baseWidth + (#Content * extraWidthPerChar), 500)
@@ -24,12 +26,16 @@ local function CreateNotification(Title, Content, Duration, Image)
 
     local width, height = calculateSize(Content)
 
+    -- Calculate the position for stacking notifications
+    local notificationIndex = #activeNotifications + 1
+    local verticalOffset = (notificationIndex - 1) * (height + 10) -- 10px padding between notifications
+
     local NotificationFrame = Instance.new("Frame")
     NotificationFrame.Size = UDim2.new(0, width, 0, height)
-    NotificationFrame.Position = UDim2.new(0.5, -width / 2, 0.85, 0)
+    NotificationFrame.Position = UDim2.new(1, -width - 20, 1, -height - 20 - verticalOffset) -- Bottom-right corner with padding
     NotificationFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     NotificationFrame.BorderSizePixel = 0
-    NotificationFrame.AnchorPoint = Vector2.new(0.5, 1)
+    NotificationFrame.AnchorPoint = Vector2.new(1, 1) -- Right-bottom anchor
     NotificationFrame.BackgroundTransparency = 0.2
     NotificationFrame.Visible = true
     NotificationFrame.Parent = ScreenGui
@@ -74,11 +80,20 @@ local function CreateNotification(Title, Content, Duration, Image)
     Icon.BackgroundTransparency = 1
     Icon.Parent = NotificationFrame
 
+    table.insert(activeNotifications, NotificationFrame) -- Track active notifications
+
     local function FadeOutNotification()
         local tween = TweenService:Create(NotificationFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1, Position = NotificationFrame.Position + UDim2.new(0, 0, 0.1, 0)})
         tween:Play()
         tween.Completed:Wait()
         NotificationFrame:Destroy()
+        table.remove(activeNotifications, table.find(activeNotifications, NotificationFrame)) -- Remove from tracking
+
+        -- Reposition remaining notifications
+        for i, notif in ipairs(activeNotifications) do
+            local newVerticalOffset = (i - 1) * (notif.Size.Y.Offset + 10)
+            TweenService:Create(notif, TweenInfo.new(0.3), {Position = UDim2.new(1, -notif.Size.X.Offset - 20, 1, -notif.Size.Y.Offset - 20 - newVerticalOffset)}):Play()
+        end
     end
 
     local function AutoCloseNotification()
