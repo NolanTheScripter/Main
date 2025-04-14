@@ -1,8 +1,11 @@
--- Dragnir Ultra Notification System v1.0
+-- Dragnir Ultra Notification System v3.1 (Auto-Detect Localization)
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local LocalizationService = game:GetService("LocalizationService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
+local HapticService = game:GetService("HapticService")
 
 -- Configuration
 local Config = {
@@ -15,44 +18,138 @@ local Config = {
         Info = Color3.fromRGB(85, 170, 255),
         Fail = Color3.fromRGB(120, 120, 120),
     },
+    Sounds = {
+        Success = "rbxassetid://123456789",
+        Error = "rbxassetid://987654321",
+        Warning = "rbxassetid://456789123",
+    },
     DefaultDuration = 7,
     MaxVisibleNotifications = 5,
-}
-
--- Rate Limiter
-local RateLimiter = {
-    Enabled = true,
-    Cooldown = 1.5,
-    PerTypeCooldown = {
-        ["Error"] = 2,
-        ["Success"] = 0.5,
-        ["Fail"] = 3,
-        ["Warning"] = 1,
-        ["Info"] = 1,
-        ["Custom"] = 0.8,
+    StackingDirection = "Vertical", -- Options: "Vertical", "Horizontal"
+    DebugMode = false, -- Developer mode for testing notifications
+    Localization = {
+        en = { -- English
+            Success = "Success",
+            Error = "Error",
+            Warning = "Warning",
+            Info = "Info",
+            Fail = "Fail",
+        },
+        es = { -- Spanish
+            Success = "Éxito",
+            Error = "Error",
+            Warning = "Advertencia",
+            Info = "Información",
+            Fail = "Fallo",
+        },
+        fr = { -- French
+            Success = "Succès",
+            Error = "Erreur",
+            Warning = "Avertissement",
+            Info = "Info",
+            Fail = "Échec",
+        },
+        de = { -- German
+            Success = "Erfolg",
+            Error = "Fehler",
+            Warning = "Warnung",
+            Info = "Info",
+            Fail = "Fehlschlag",
+        },
+        zh = { -- Chinese (Simplified)
+            Success = "成功",
+            Error = "错误",
+            Warning = "警告",
+            Info = "信息",
+            Fail = "失败",
+        },
+        ru = { -- Russian
+            Success = "Успех",
+            Error = "Ошибка",
+            Warning = "Предупреждение",
+            Info = "Информация",
+            Fail = "Неудача",
+        },
+        pt = { -- Portuguese
+            Success = "Sucesso",
+            Error = "Erro",
+            Warning = "Aviso",
+            Info = "Informação",
+            Fail = "Falha",
+        },
+        ar = { -- Arabic
+            Success = "نجاح",
+            Error = "خطأ",
+            Warning = "تحذير",
+            Info = "معلومة",
+            Fail = "فشل",
+        },
+        hi = { -- Hindi
+            Success = "सफलता",
+            Error = "त्रुटि",
+            Warning = "चेतावनी",
+            Info = "जानकारी",
+            Fail = "विफल",
+        },
+        ja = { -- Japanese
+            Success = "成功",
+            Error = "エラー",
+            Warning = "警告",
+            Info = "情報",
+            Fail = "失敗",
+        },
     },
-    LastSent = {}
+    DefaultLanguage = "en", -- Fallback language
+    Language = nil -- Detected language will be stored here
 }
 
 -- Helper Functions
-local function CanSendNotification(notificationType)
-    if not RateLimiter.Enabled then return true end
-    local now = tick()
-    local lastTime = RateLimiter.LastSent[notificationType] or 0
-    local cooldown = RateLimiter.PerTypeCooldown[notificationType] or RateLimiter.Cooldown
-    if now - lastTime >= cooldown then
-        RateLimiter.LastSent[notificationType] = now
-        return true
+local function DetectLanguage()
+    local detectedLanguage
+    pcall(function()
+        detectedLanguage = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+    end)
+
+    if detectedLanguage and Config.Localization[detectedLanguage] then
+        return detectedLanguage
+    else
+        return Config.DefaultLanguage -- Fallback to default language
     end
-    return false
 end
 
-local function PlayAnimation(object, properties, duration)
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local function Localize(key)
+    local language = Config.Language or Config.DefaultLanguage
+    return Config.Localization[language][key] or key
+end
+
+local function PlayAnimation(object, properties, duration, easingStyle)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle[easingStyle] or Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local tween = TweenService:Create(object, tweenInfo, properties)
     tween:Play()
     return tween
 end
+
+local function PlaySound(soundId)
+    if soundId then
+        local sound = Instance.new("Sound")
+        sound.SoundId = soundId
+        sound.Volume = 1
+        sound.Parent = workspace
+        sound:Play()
+        sound.Ended:Connect(function()
+            sound:Destroy()
+        end)
+    end
+end
+
+local function TriggerHapticFeedback()
+    if UserInputService.TouchEnabled and HapticService:IsMotorSupported(Enum.UserInputType.Touch) then
+        HapticService:SetMotor(Enum.UserInputType.Touch, Enum.VibrationMotor.Small, 0.5)
+    end
+end
+
+-- Initialize Language
+Config.Language = DetectLanguage()
 
 -- UI Initialization
 local DragnirNotificationGui = Instance.new("ScreenGui")
@@ -75,6 +172,7 @@ NotificationContainer.Parent = DragnirNotificationGui
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.FillDirection = Config.StackingDirection == "Horizontal" and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
 UIListLayout.Parent = NotificationContainer
 
 local UIPadding = Instance.new("UIPadding")
@@ -86,12 +184,10 @@ UIPadding.Parent = NotificationContainer
 local Notification = {}
 
 function Notification:Create(config)
-    if not CanSendNotification(config.Type) then return end
-
     -- Create Notification Frame
     local NotificationFrame = Instance.new("Frame")
     NotificationFrame.Name = "NotificationFrame"
-    NotificationFrame.Size = UDim2.new(1, 0, 0, 100)
+    NotificationFrame.Size = Config.CompactMode and UDim2.new(1, 0, 0, 50) or UDim2.new(1, 0, 0, 100)
     NotificationFrame.BackgroundColor3 = config.Color or Config.Colors[config.Type] or Config.Colors.Info
     NotificationFrame.BorderSizePixel = 0
     NotificationFrame.Parent = NotificationContainer
@@ -111,7 +207,7 @@ function Notification:Create(config)
     TitleLabel.Size = UDim2.new(1, -40, 0.3, 0)
     TitleLabel.Position = UDim2.new(0, 10, 0, 5)
     TitleLabel.Font = Config.Font
-    TitleLabel.Text = config.Title or "Notification"
+    TitleLabel.Text = config.Title or Localize(config.Type) or "Notification"
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.BackgroundTransparency = 1
@@ -130,21 +226,6 @@ function Notification:Create(config)
     MessageLabel.BackgroundTransparency = 1
     MessageLabel.Parent = NotificationFrame
 
-    -- Close Button
-    local CloseButton = Instance.new("TextButton")
-    CloseButton.Name = "CloseButton"
-    CloseButton.Size = UDim2.new(0, 20, 0, 20)
-    CloseButton.Position = UDim2.new(1, -30, 0, 10)
-    CloseButton.Text = "X"
-    CloseButton.Font = Config.Font
-    CloseButton.TextColor3 = Color3.fromRGB(255, 75, 75)
-    CloseButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    CloseButton.Parent = NotificationFrame
-
-    local CloseUICorner = Instance.new("UICorner")
-    CloseUICorner.CornerRadius = UDim.new(0, 4)
-    CloseUICorner.Parent = CloseButton
-
     -- Entry Animation
     NotificationFrame.Position = UDim2.new(1, 0, 0, 0)
     PlayAnimation(NotificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.5)
@@ -155,14 +236,6 @@ function Notification:Create(config)
             Notification:Dismiss(NotificationFrame)
         end)
     end
-
-    -- Close Button Functionality
-    CloseButton.MouseButton1Click:Connect(function()
-        Notification:Dismiss(NotificationFrame)
-        if config.OnDismiss then
-            config.OnDismiss()
-        end
-    end)
 end
 
 function Notification:Dismiss(frame)
