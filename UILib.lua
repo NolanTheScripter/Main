@@ -10,6 +10,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = Workspace.CurrentCamera
 
 function UI:CreateWindow(Name, Icon)
+    local PlayerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = Name .. "_UI"
     ScreenGui.ResetOnSpawn = false
@@ -20,7 +21,7 @@ function UI:CreateWindow(Name, Icon)
     MainFrame.Name = Name .. "_Frame"
     MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MainFrame.Size = UDim2.new(0, 400, 0, 500)
+    MainFrame.Size = UDim2.new(0.35, 0, 0.6, 0) -- Scales with screen size
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
@@ -33,7 +34,7 @@ function UI:CreateWindow(Name, Icon)
 
     local TabBar = Instance.new("Frame")
     TabBar.Name = "TabBar"
-    TabBar.Size = UDim2.new(1, 0, 0, 40)
+    TabBar.Size = UDim2.new(1, 0, 0.08, 0) -- Height is 8% of parent height
     TabBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     TabBar.BorderSizePixel = 0
     TabBar.Parent = MainFrame
@@ -46,8 +47,8 @@ function UI:CreateWindow(Name, Icon)
 
     local ContentContainer = Instance.new("Frame")
     ContentContainer.Name = "ContentContainer"
-    ContentContainer.Size = UDim2.new(1, 0, 1, -40)
-    ContentContainer.Position = UDim2.new(0, 0, 0, 40)
+    ContentContainer.Size = UDim2.new(1, 0, 0.92, 0) -- Remaining 92% of height
+    ContentContainer.Position = UDim2.new(0, 0, 0.08, 0)
     ContentContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     ContentContainer.BorderSizePixel = 0
     ContentContainer.Parent = MainFrame
