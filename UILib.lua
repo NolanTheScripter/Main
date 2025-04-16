@@ -9,9 +9,6 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = Workspace.CurrentCamera
 
----------------------------------------------------------------------
--- UI:CreateWindow
----------------------------------------------------------------------
 function UI:CreateWindow(Name, Icon)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = Name .. "_UI"
@@ -68,9 +65,6 @@ function UI:CreateWindow(Name, Icon)
     return window
 end
 
----------------------------------------------------------------------
--- WindowFunctions:CreateTab
----------------------------------------------------------------------
 function WindowFunctions:CreateTab(TabName)
     local TabButton = Instance.new("TextButton")
     TabButton.Name = TabName .. "_Button"
@@ -125,9 +119,6 @@ function WindowFunctions:CreateTab(TabName)
     return tab
 end
 
----------------------------------------------------------------------
--- TabFunctions:CreateSection
----------------------------------------------------------------------
 function TabFunctions:CreateSection(SectionName)
     local SectionFrame = Instance.new("Frame")
     SectionFrame.Name = "Section_" .. SectionName
@@ -156,10 +147,6 @@ function TabFunctions:CreateSection(SectionName)
     setmetatable(section, { __index = SectionFunctions })
     return section
 end
-
----------------------------------------------------------------------
--- SectionFunctions
----------------------------------------------------------------------
 
 function SectionFunctions:Input(Name, CurrentValue, PlaceholderText, RemoveTextAfterFocusLost, Callback)
     RemoveTextAfterFocusLost = RemoveTextAfterFocusLost or false
@@ -300,7 +287,4 @@ function SectionFunctions:Paragraph(Title, Content)
     return { Title = TitleLabel, Content = ContentLabel }
 end
 
----------------------------------------------------------------------
--- Return the UI table
----------------------------------------------------------------------
 return UI
