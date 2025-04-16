@@ -24,6 +24,8 @@ function UI:CreateWindow(Name, Icon)
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
+    MainFrame.Draggable = true
+    MainFrame.Active = true
 
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 12)
