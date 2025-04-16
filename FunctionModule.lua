@@ -170,6 +170,31 @@ function FunctionModule.asyncBatch(funcs, maxConcurrency, ...)
 end
 
 -- =======================
+-- Task-based Execution
+-- =======================
+function FunctionModule.taskSpawn(func, ...)
+    task.spawn(function()
+        local success, result = pcall(func, ...)
+        if not success then
+            warn("Error in task.spawn: " .. result)
+        end
+    end)
+end
+
+function FunctionModule.taskDelay(delay, func, ...)
+    task.delay(delay, function()
+        local success, result = pcall(func, ...)
+        if not success then
+            warn("Error in task.delay: " .. result)
+        end
+    end)
+end
+
+function FunctionModule.taskWait(waitTime)
+    task.wait(waitTime)
+end
+
+-- =======================
 -- Custom Error Handling
 -- =======================
 
