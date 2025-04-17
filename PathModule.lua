@@ -75,7 +75,7 @@ local function Compute()
 	local success = pcall(function()
 		path:ComputeAsync(from.Position, destination)
 	end)
-	if not success or path.Status ~= Enum.PathStatus.Complete then
+	if not success or path.Status ~= Enum.PathStatus.Success then
 		self.OnPathFail("PathComputeFailed")
 		return nil
 	end
