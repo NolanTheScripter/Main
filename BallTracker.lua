@@ -19,7 +19,7 @@ local listeners = {}
 
 -- Utility
 local function isBall(obj)
-	return obj:IsA("BasePart") and obj.Name:lower():find("ball")
+	return obj:IsA("BasePart") and obj.Name:lower():find("origin")
 end
 
 local function getVelocity(part)
