@@ -2,11 +2,12 @@ local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService") -- For external module loading
 
 local TacticalPath = {}
 TacticalPath.__index = TacticalPath
 
--- Configuration Module (Dynamic Loading)
+-- Configuration Module
 local CONFIG = {
     AgentRadius = 2,
     AgentHeight = 5,
@@ -20,6 +21,9 @@ local CONFIG = {
     Visualize = true,
     WaypointColor = Color3.fromRGB(255, 0, 0),
     WaypointTime = 3,
+    DangerZones = { -- Heatmap Danger Zones
+        { Position = Vector3.new(50, 0, 50), Radius = 10 }, -- Example danger zone
+    },
 
     ObstacleCheck = true,
     MaxRetries = 3,
@@ -31,6 +35,10 @@ local CONFIG = {
     PredictTime = 1.5,
 
     Debug = false,
+    PathRecalculationCooldown = 1,
+    SlopeSensitivity = 30, -- Max slope angle the agent can traverse
+    PhysicsScale = 1, -- Custom physics scaling (gravity, etc.)
+    AnimationStates = { Jump = "JumpAnim", Walk = "WalkAnim", Climb = "ClimbAnim" }, -- Animation triggers
 }
 
 -- Helper: Logging Utility
@@ -40,14 +48,14 @@ local function Log(message)
     end
 end
 
--- Helper: Copy Error to Clipboard
-local function CopyErrorToClipboard(errorMessage)
-    local success, clipError = pcall(function()
-        setclipboard(errorMessage) -- Copies the error message to the clipboard
-    end)
-    if not success then
-        warn("[TacticalPath Error]: Failed to copy error to clipboard. Reason: " .. tostring(clipError))
+-- Helper: Check if Position is Within a Danger Zone
+local function IsInDangerZone(position)
+    for _, zone in ipairs(CONFIG.DangerZones) do
+        if (zone.Position - position).Magnitude <= zone.Radius then
+            return true
+        end
     end
+    return false
 end
 
 -- Helper: Visualize Waypoints
@@ -63,32 +71,21 @@ local function VisualizeWaypoint(position, color)
     Debris:AddItem(dot, CONFIG.WaypointTime)
 end
 
--- Helper: Check if Part is Blacklisted
-local function IsBlacklisted(part)
-    for _, tag in pairs(CONFIG.ZoneBlacklist) do
-        if part.Name:lower():find(tag:lower()) then
-            return true
-        end
+-- Helper: Dynamic Risk Assessment
+local function AssessRisk(position)
+    if IsInDangerZone(position) then
+        Log("High risk detected at position: " .. tostring(position))
+        return true
     end
     return false
 end
 
--- Helper: Check Path Clearance
-local function IsPathClear(startPos, endPos)
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = { workspace.Terrain }
-    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-    local result = workspace:Raycast(startPos, (endPos - startPos).Unit * (startPos - endPos).Magnitude, rayParams)
-    return not result or not IsBlacklisted(result.Instance)
-end
-
--- Helper: Predict Future Position
-local function PredictPosition(target)
-    if not CONFIG.PredictFuture then return target.Position end
-    local root = target:FindFirstChild("HumanoidRootPart")
-    if not root then return target.Position end
-    return root.Position + (root.AssemblyLinearVelocity * CONFIG.PredictTime)
+-- Helper: Smooth Transition Between States
+local function TriggerAnimation(humanoid, animationKey)
+    if CONFIG.AnimationStates[animationKey] then
+        Log("Triggering animation: " .. animationKey)
+        humanoid:LoadAnimation(CONFIG.AnimationStates[animationKey]):Play()
+    end
 end
 
 -- Initialize TacticalPath
@@ -110,6 +107,7 @@ function TacticalPath.new()
     self.Target = nil
     self.IsActive = false
     self._connection = nil
+    self.CachedPaths = {} -- For memory-efficient path caching
 
     return self
 end
@@ -117,100 +115,99 @@ end
 -- Pathfinding Function
 function TacticalPath:PathTo(from: BasePart, to: BasePart)
     if not (from and to and from:IsA("BasePart") and to:IsA("BasePart")) then
+        Log("Invalid pathfinding parameters.")
         return false
     end
 
-    local humanoid = from.Parent and from.Parent:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return false end
-
-    local function ComputePath()
-        local destination = CONFIG.PredictFuture and PredictPosition(to.Parent) or to.Position
-        local path = PathfindingService:CreatePath({
-            AgentRadius = CONFIG.AgentRadius,
-            AgentHeight = CONFIG.AgentHeight,
-            AgentCanJump = CONFIG.AgentCanJump,
-            AgentJumpHeight = CONFIG.AgentJumpHeight,
-            AgentCanClimb = CONFIG.AgentCanClimb,
-            AgentCanSwim = CONFIG.AgentCanSwim,
-            WaypointSpacing = CONFIG.SafePathMode and 1 or 2,
-        })
-
-        local success, errorMsg = pcall(function()
-            path:ComputeAsync(from.Position, destination)
-        end)
-
-        if not success or path.Status ~= Enum.PathStatus.Success then
-            local errorText = "PathComputeFailed: " .. tostring(errorMsg)
-            CopyErrorToClipboard(errorText) -- Automatically copy the error to clipboard
-            self.Events.OnPathFail:Fire(errorText)
-            return nil
-        end
-        return path
+    if self.IsActive then
+        Log("Pathfinding already in progress. Cancelling previous task.")
+        self:Stop()
     end
 
-    local path = ComputePath()
-    if not path then return false end
+    local humanoid = from.Parent and from.Parent:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        Log("Humanoid not found in the source part's parent.")
+        return false
+    end
 
-    self.IsActive = true
-    self.Status = "Walking"
-    self.Target = to
-    self.Events.OnPathStart:Fire(to)
+    -- Check for cached path
+    local cacheKey = from.Position .. "-" .. to.Position
+    if self.CachedPaths[cacheKey] then
+        Log("Using cached path.")
+        return self:FollowWaypoints(humanoid, self.CachedPaths[cacheKey])
+    end
 
-    self._connection = RunService.Heartbeat:Connect(function()
-        if (to.Position - PredictPosition(to.Parent)).Magnitude > CONFIG.RecalculateDistance then
-            self:Stop()
-            self:PathTo(from, to)
-        end
+    -- Compute Path
+    local path = PathfindingService:CreatePath({
+        AgentRadius = CONFIG.AgentRadius,
+        AgentHeight = CONFIG.AgentHeight,
+        AgentCanJump = CONFIG.AgentCanJump,
+        AgentJumpHeight = CONFIG.AgentJumpHeight,
+        AgentCanClimb = CONFIG.AgentCanClimb,
+        AgentCanSwim = CONFIG.AgentCanSwim,
+        WaypointSpacing = CONFIG.SafePathMode and 1 or 2,
+    })
+
+    local success, errorMsg = pcall(function()
+        path:ComputeAsync(from.Position, to.Position)
     end)
 
-    for _, waypoint in ipairs(path:GetWaypoints()) do
+    if not success or path.Status ~= Enum.PathStatus.Success then
+        local errorText = "PathComputeFailed: " .. tostring(errorMsg)
+        Log(errorText)
+        self.Events.OnPathFail:Fire(errorText)
+        return false
+    end
+
+    -- Cache Path
+    self.CachedPaths[cacheKey] = path:GetWaypoints()
+
+    return self:FollowWaypoints(humanoid, path:GetWaypoints())
+end
+
+-- Follow Waypoints
+function TacticalPath:FollowWaypoints(humanoid, waypoints)
+    self.IsActive = true
+    self.Status = "Walking"
+
+    for _, waypoint in ipairs(waypoints) do
         if not self.IsActive then break end
         self.Events.OnStep:Fire(waypoint)
         VisualizeWaypoint(waypoint.Position)
 
-        if CONFIG.SmartJump and waypoint.Action == Enum.PathWaypointAction.Jump then
-            self.Events.OnJump:Fire()
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        elseif waypoint.Action == Enum.PathWaypointAction.Climb then
-            self.Events.OnClimb:Fire()
+        if AssessRisk(waypoint.Position) then
+            Log("Risk detected. Recalculating path.")
+            self:Stop()
+            return false
         end
 
-        local retries = 0
-        repeat
-            if IsPathClear(from.Position, waypoint.Position) then
-                humanoid:MoveTo(waypoint.Position)
-                local reached = humanoid.MoveToFinished:Wait(CONFIG.WaitTimeout)
-                if reached then break else retries += 1 end
-            else
-                self.Events.OnBlocked:Fire("BlockedRay")
-                task.wait(CONFIG.WaitTimeout)
-                retries += 1
-            end
-        until retries >= CONFIG.MaxRetries
-
-        if retries >= CONFIG.MaxRetries then
-            local errorText = "MaxRetriesReached"
-            CopyErrorToClipboard(errorText) -- Automatically copy the error to clipboard
-            self.Events.OnPathFail:Fire(errorText)
-            self:Stop()
+        humanoid:MoveTo(waypoint.Position)
+        local reached = humanoid.MoveToFinished:Wait(CONFIG.WaitTimeout)
+        if not reached then
+            self.Events.OnBlocked:Fire("Blocked by obstacle")
+            task.delay(CONFIG.PathRecalculationCooldown, function()
+                self:Stop()
+            end)
             return false
         end
     end
 
     self.Status = "Complete"
-    self.Events.OnPathEnd:Fire()
     self.IsActive = false
+    self.Events.OnPathEnd:Fire()
     return true
 end
 
 -- Stop Pathfinding
 function TacticalPath:Stop()
+    if not self.IsActive then return end
     self.IsActive = false
     self.Status = "Canceled"
     if self._connection then
         self._connection:Disconnect()
         self._connection = nil
     end
+    Log("Pathfinding stopped successfully.")
 end
 
 return TacticalPath
