@@ -1,4 +1,7 @@
--- Dragnir Auto-Parry Enhanced System (Full Logic Version) local RunService = game:GetService("RunService") local Players = game:GetService("Players") local VirtualInput = game:GetService("VirtualInputManager")
+-- Dragnir Auto-Parry Enhanced System (Full Logic Version) 
+
+local RunService = game:GetService("RunService") 
+local Players = game:GetService("Players") local VirtualInput = game:GetService("VirtualInputManager")
 
 local DragnirAutoParry = {} DragnirAutoParry.Settings = { AutoParry = true, AutoPredict = true, AutoVisualize = true, DangerZoneScanner = true, ImpactTimerHUD = true, SmartFocusTargeting = true, ReplayAnalyzer = false, BallMemory = true,
 
