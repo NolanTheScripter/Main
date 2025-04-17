@@ -40,6 +40,16 @@ local function Log(message)
     end
 end
 
+-- Helper: Copy Error to Clipboard
+local function CopyErrorToClipboard(errorMessage)
+    local success, clipError = pcall(function()
+        setclipboard(errorMessage) -- Copies the error message to the clipboard
+    end)
+    if not success then
+        warn("[TacticalPath Error]: Failed to copy error to clipboard. Reason: " .. tostring(clipError))
+    end
+end
+
 -- Helper: Visualize Waypoints
 local function VisualizeWaypoint(position, color)
     if not CONFIG.Visualize then return end
@@ -130,7 +140,9 @@ function TacticalPath:PathTo(from: BasePart, to: BasePart)
         end)
 
         if not success or path.Status ~= Enum.PathStatus.Success then
-            self.Events.OnPathFail:Fire("PathComputeFailed: " .. tostring(errorMsg))
+            local errorText = "PathComputeFailed: " .. tostring(errorMsg)
+            CopyErrorToClipboard(errorText) -- Automatically copy the error to clipboard
+            self.Events.OnPathFail:Fire(errorText)
             return nil
         end
         return path
@@ -177,7 +189,9 @@ function TacticalPath:PathTo(from: BasePart, to: BasePart)
         until retries >= CONFIG.MaxRetries
 
         if retries >= CONFIG.MaxRetries then
-            self.Events.OnPathFail:Fire("MaxRetriesReached")
+            local errorText = "MaxRetriesReached"
+            CopyErrorToClipboard(errorText) -- Automatically copy the error to clipboard
+            self.Events.OnPathFail:Fire(errorText)
             self:Stop()
             return false
         end
