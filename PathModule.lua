@@ -7,7 +7,7 @@ local TacticalPath = {}
 TacticalPath.__index = TacticalPath
 
 -- Configuration Module (Dynamic Loading)
-local CONFIG = require(script:FindFirstChild("PathConfig") or {}) or {
+local CONFIG = {
     AgentRadius = 2,
     AgentHeight = 5,
     AgentCanJump = true,
