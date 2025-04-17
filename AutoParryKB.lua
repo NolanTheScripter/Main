@@ -23,7 +23,7 @@ DragnirAutoParry.Settings = {
 -- Local Variables
 local LocalPlayer = Players.LocalPlayer
 local Character, HumanoidRootPart = nil, nil
-local Ball = workspace:WaitForChild("Ball")
+local Ball = workspace:WaitForChild("game space"):WaitForChild("ball"):WaitForChild("origin") or workspace:WaitForChild("game space"):WaitForChild("ball"):WaitForChild("base")
 local BallMemory = {}
 local LastPrediction, CurrentThreat = nil, nil
 local VisualizeParts = {}
