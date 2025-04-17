@@ -89,16 +89,44 @@ function DragnirAutoParry.Visualize()
     end
     VisualizeParts = {}
 
-    -- Create new visualization
-    local part = Instance.new("Part")
-    part.Anchored = true
-    part.CanCollide = false
-    part.Size = Vector3.new(0.4, 0.4, 0.4)
-    part.Position = predicted
-    part.Color = Color3.fromRGB(255, 0, 255)
-    part.Material = Enum.Material.Neon
-    part.Parent = workspace
-    table.insert(VisualizeParts, part)
+    -- Create new visualization - Main Prediction Sphere
+    local mainPart = Instance.new("Part")
+    mainPart.Anchored = true
+    mainPart.CanCollide = false
+    mainPart.Size = Vector3.new(0.5, 0.5, 0.5)
+    mainPart.Position = predicted
+    mainPart.Color = Color3.fromRGB(0, 255, 0) -- Green for base visualization
+    mainPart.Material = Enum.Material.Neon
+    mainPart.Parent = workspace
+    table.insert(VisualizeParts, mainPart)
+
+    -- Add a velocity-based trail for dynamic feedback
+    local trailPart = Instance.new("Part")
+    trailPart.Anchored = true
+    trailPart.CanCollide = false
+    trailPart.Size = Vector3.new(0.3, 0.3, 0.3)
+    trailPart.Position = Ball.Position
+    trailPart.Color = Color3.fromRGB(255, math.clamp(255 - Ball.Velocity.Magnitude * 4, 0, 255), 0) -- Gradient from red to green
+    trailPart.Material = Enum.Material.Neon
+    trailPart.Transparency = 0.5
+    trailPart.Parent = workspace
+    table.insert(VisualizeParts, trailPart)
+
+    -- Add a connecting line between the Ball and the predicted position
+    local beam = Instance.new("Beam")
+    local attachment0 = Instance.new("Attachment", Ball)
+    local attachment1 = Instance.new("Attachment", mainPart)
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 255))
+    }
+    beam.Width0 = 0.2
+    beam.Width1 = 0.1
+    beam.FaceCamera = true
+    beam.Parent = workspace
+    table.insert(VisualizeParts, beam)
 end
 
 function DragnirAutoParry.ScanDangerZone()
