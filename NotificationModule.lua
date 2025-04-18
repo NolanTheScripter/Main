@@ -1,186 +1,345 @@
-local Notification = {}
+-- ModuleScript: NotificationModule
+local NotificationModule = {}
 
--- Configuration (can be modified or externally accessed)
-local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/NolanTheScripter/Main/main/NotificationConfig.lua")()
-
--- Internal Rate Limiter
-local RateLimiter = {
-    LastTypeSent = {},
-    GlobalTimestamps = {}
+-- Configuration
+local CONFIG = {
+    DefaultDuration = 5,
+    Position = UDim2.new(1, -20, 0, 20),
+    Size = UDim2.new(0, 300, 0, 0), -- Height will auto-adjust
+    MaxWidth = 300,
+    Spacing = 10,
+    ZIndex = 100,
+    
+    -- Colors
+    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+    BackgroundTransparency = 0.2,
+    StrokeColor = Color3.fromRGB(80, 80, 80),
+    
+    -- Text styles
+    TitleFont = Enum.Font.GothamBold,
+    MessageFont = Enum.Font.Gotham,
+    TitleSize = 18,
+    MessageSize = 14,
+    
+    -- Icons
+    Icons = {
+        Success = "rbxassetid://6031091004",
+        Error = "rbxassetid://6031090988",
+        Warning = "rbxassetid://6031090997",
+        Info = "rbxassetid://6031090990"
+    },
+    
+    -- Animations
+    SlideInDuration = 0.3,
+    SlideOutDuration = 0.3,
+    ProgressSpeed = 1, -- 1 = normal speed
 }
 
--- Helper: Create Notification Template
-local function createNotificationTemplate()
-    local template = Instance.new("Frame")
-    template.Name = "NotificationTemplate"
-    template.Size = UDim2.new(0, 350, 0, 70)
-    template.BackgroundTransparency = 0.8
-    template.BackgroundColor3 = Config.Colors.Success
-    template.BorderSizePixel = 0
-    template.ClipsDescendants = true
+-- Types
+local TYPES = {
+    Success = {
+        AccentColor = Color3.fromRGB(76, 175, 80),
+        Icon = CONFIG.Icons.Success
+    },
+    Error = {
+        AccentColor = Color3.fromRGB(244, 67, 54),
+        Icon = CONFIG.Icons.Error
+    },
+    Warning = {
+        AccentColor = Color3.fromRGB(255, 152, 0),
+        Icon = CONFIG.Icons.Warning
+    },
+    Info = {
+        AccentColor = Color3.fromRGB(33, 150, 243),
+        Icon = CONFIG.Icons.Info
+    }
+}
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = Config.CornerRadius
-    corner.Parent = template
+-- Services
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
+-- Internal variables
+local notifications = {}
+local container
+local screenGui
+
+-- Create the container if it doesn't exist
+local function ensureContainer()
+    if not container then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "NotificationSystem"
+        screenGui.ResetOnSpawn = false
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        
+        container = Instance.new("Frame")
+        container.Name = "NotificationContainer"
+        container.BackgroundTransparency = 1
+        container.Size = UDim2.new(1, 0, 1, 0)
+        container.Position = UDim2.new(0, 0, 0, 0)
+        container.Parent = screenGui
+    end
+end
+
+-- Create a new notification
+function NotificationModule.Notify(params)
+    ensureContainer()
+    
+    local title = params.Title or "Notification"
+    local message = params.Message or ""
+    local duration = params.Duration or CONFIG.DefaultDuration
+    local notificationType = params.Type or "Info"
+    local callback = params.Callback
+    
+    -- Get type configuration
+    local typeConfig = TYPES[notificationType] or TYPES.Info
+    
+    -- Create notification frame
+    local notification = Instance.new("Frame")
+    notification.Name = "Notification"
+    notification.BackgroundColor3 = CONFIG.BackgroundColor3
+    notification.BackgroundTransparency = CONFIG.BackgroundTransparency
+    notification.Size = CONFIG.Size
+    notification.Position = UDim2.new(1, 0, 0, 0)
+    notification.AnchorPoint = Vector2.new(1, 0)
+    notification.ZIndex = CONFIG.ZIndex
+    notification.AutomaticSize = Enum.AutomaticSize.Y
+    notification.Parent = container
+    
+    -- Add stroke
+    local stroke = Instance.new("UIStroke")
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Color = CONFIG.StrokeColor
+    stroke.Thickness = 1
+    stroke.Parent = notification
+    
+    -- Add accent
+    local accent = Instance.new("Frame")
+    accent.Name = "Accent"
+    accent.BackgroundColor3 = typeConfig.AccentColor
+    accent.BorderSizePixel = 0
+    accent.Size = UDim2.new(0, 4, 1, 0)
+    accent.Position = UDim2.new(0, 0, 0, 0)
+    accent.ZIndex = CONFIG.ZIndex + 1
+    accent.Parent = notification
+    
+    -- Add layout
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = notification
+    
+    -- Add padding
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 16)
+    padding.PaddingRight = UDim.new(0, 16)
+    padding.PaddingTop = UDim.new(0, 12)
+    padding.PaddingBottom = UDim.new(0, 12)
+    padding.Parent = notification
+    
+    -- Add icon and title container
+    local titleContainer = Instance.new("Frame")
+    titleContainer.Name = "TitleContainer"
+    titleContainer.BackgroundTransparency = 1
+    titleContainer.Size = UDim2.new(1, 0, 0, CONFIG.TitleSize)
+    titleContainer.LayoutOrder = 1
+    titleContainer.AutomaticSize = Enum.AutomaticSize.Y
+    titleContainer.Parent = notification
+    
+    local titleLayout = Instance.new("UIListLayout")
+    titleLayout.FillDirection = Enum.FillDirection.Horizontal
+    titleLayout.Padding = UDim.new(0, 8)
+    titleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    titleLayout.Parent = titleContainer
+    
+    -- Add icon
     local icon = Instance.new("ImageLabel")
-    icon.Size = UDim2.new(0, 40, 0, 40)
-    icon.Position = UDim2.new(0, 10, 0.5, -20)
+    icon.Name = "Icon"
+    icon.Image = typeConfig.Icon
     icon.BackgroundTransparency = 1
-    icon.Parent = template
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 250, 0, 25)
-    title.Position = UDim2.new(0, 60, 0, 5)
-    title.Text = "Notification Title"
-    title.Font = Config.Fonts.Title
-    title.TextSize = 18
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.BackgroundTransparency = 1
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = template
-
-    local message = Instance.new("TextLabel")
-    message.Size = UDim2.new(0, 250, 0, 30)
-    message.Position = UDim2.new(0, 60, 0, 30)
-    message.Text = "This is a notification message."
-    message.Font = Config.Fonts.Message
-    message.TextSize = 14
-    message.TextColor3 = Color3.fromRGB(255, 255, 255)
-    message.BackgroundTransparency = 1
-    message.TextWrapped = true
-    message.TextXAlignment = Enum.TextXAlignment.Left
-    message.Parent = template
-
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -40, 0, 10)
-    closeButton.Text = "X"
-    closeButton.Font = Enum.Font.Gotham
-    closeButton.TextSize = 16
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    closeButton.BackgroundTransparency = 0.6
-    closeButton.BorderSizePixel = 0
-    closeButton.Parent = template
-
-    return template, icon, title, message, closeButton
-end
-
--- Helper: Setup Progress Bar
-local function setupProgressBar(notification, duration)
+    icon.Size = UDim2.new(0, CONFIG.TitleSize, 0, CONFIG.TitleSize)
+    icon.LayoutOrder = 1
+    icon.Parent = titleContainer
+    
+    -- Add title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Text = title
+    titleLabel.Font = CONFIG.TitleFont
+    titleLabel.TextSize = CONFIG.TitleSize
+    titleLabel.TextColor3 = Color3.new(1, 1, 1)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Size = UDim2.new(1, -CONFIG.TitleSize - 8, 0, CONFIG.TitleSize)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.LayoutOrder = 2
+    titleLabel.AutomaticSize = Enum.AutomaticSize.Y
+    titleLabel.Parent = titleContainer
+    
+    -- Add message
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Name = "Message"
+    messageLabel.Text = message
+    messageLabel.Font = CONFIG.MessageFont
+    messageLabel.TextSize = CONFIG.MessageSize
+    messageLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Size = UDim2.new(1, 0, 0, 0)
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.LayoutOrder = 2
+    messageLabel.AutomaticSize = Enum.AutomaticSize.Y
+    messageLabel.Parent = notification
+    
+    -- Add progress bar
     local progressBar = Instance.new("Frame")
-    progressBar.Size = UDim2.new(1, 0, 0, 5)
-    progressBar.Position = UDim2.new(0, 0, 1, -5)
-    progressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    progressBar.BackgroundTransparency = 0.6
+    progressBar.Name = "ProgressBar"
+    progressBar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    progressBar.BorderSizePixel = 0
+    progressBar.Size = UDim2.new(1, 0, 0, 2)
+    progressBar.Position = UDim2.new(0, 0, 1, -2)
+    progressBar.AnchorPoint = Vector2.new(0, 1)
+    progressBar.LayoutOrder = 3
+    progressBar.ZIndex = CONFIG.ZIndex + 1
     progressBar.Parent = notification
-
-    local tween = game:GetService("TweenService"):Create(
-        progressBar,
-        TweenInfo.new(duration, Enum.EasingStyle.Linear),
-        { Size = UDim2.new(0, 0, 0, 5) }
-    )
-    tween:Play()
-    return tween
-end
-
--- Helper: Setup Sound Playback
-local function setupSound(notification, soundId)
-    if soundId then
-        local sound = Instance.new("Sound")
-        sound.SoundId = soundId
-        sound.Parent = notification
-        sound:Play()
+    
+    local progressFill = Instance.new("Frame")
+    progressFill.Name = "ProgressFill"
+    progressFill.BackgroundColor3 = typeConfig.AccentColor
+    progressFill.BorderSizePixel = 0
+    progressFill.Size = UDim2.new(1, 0, 1, 0)
+    progressFill.Parent = progressBar
+    
+    -- Calculate position (stacking)
+    local positionOffset = 0
+    for _, notif in ipairs(notifications) do
+        positionOffset += notif.Instance.AbsoluteSize.Y + CONFIG.Spacing
     end
-end
-
--- Helper: Animate Entry/Exit
-local function animateNotification(notification, show)
-    local goal = show and UDim2.new(0, 0, 0, 70) or UDim2.new(-1, 0, 0, notification.Position.Y.Offset)
-    local tween = game:GetService("TweenService"):Create(
+    
+    -- Slide in animation
+    notification.Position = UDim2.new(1, 20, 0, positionOffset)
+    local slideIn = TweenService:Create(
         notification,
-        TweenInfo.new(0.5, Enum.EasingStyle.Quint),
-        { Position = goal }
+        TweenInfo.new(CONFIG.SlideInDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -20, 0, positionOffset)}
     )
-    tween:Play()
-    return tween
-end
-
--- Function to send notifications
-function Notification:Send(options)
-    -- Check rate limit first
-    if not self:CanSend(options.Type) then
-        warn("Notification rate limit exceeded for type:", options.Type)
-        return
+    slideIn:Play()
+    
+    -- Progress animation
+    local progressTween = TweenService:Create(
+        progressFill,
+        TweenInfo.new(duration * CONFIG.ProgressSpeed, Enum.EasingStyle.Linear),
+        {Size = UDim2.new(0, 0, 1, 0)}
+    )
+    
+    -- Add to notifications table
+    local notificationData = {
+        Instance = notification,
+        SlideIn = slideIn,
+        ProgressTween = progressTween,
+        StartTime = os.clock(),
+        Duration = duration,
+        Callback = callback
+    }
+    
+    table.insert(notifications, notificationData)
+    
+    -- Start progress if duration > 0
+    if duration > 0 then
+        progressTween:Play()
+        
+        -- Set up auto-removal
+        delay(duration, function()
+            NotificationModule.Dismiss(notification)
+        end)
     end
-
-    -- Set up the notification display
-    local screenGui = game.Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("DragnirNotificationGui")
-    local container = screenGui:WaitForChild("NotificationContainer")
-    local notification, icon, title, message, closeButton = createNotificationTemplate()
-
-    -- Assign values based on the options provided
-    title.Text = options.Title or "Notification"
-    message.Text = options.Message or "This is a notification."
-    icon.Image = Config.Icons[options.Type] or Config.Icons["Default"]
-    notification.BackgroundColor3 = Config.Colors[options.Type] or Config.Colors.Success
-
-    -- Close button functionality
-    closeButton.MouseButton1Click:Connect(function()
-        animateNotification(notification, false):Completed:Connect(function()
-            notification:Destroy()
-            if options.OnDismiss then
-                options.OnDismiss()
+    
+    -- Make notification clickable if there's a callback
+    if callback then
+        notification.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                callback()
+                NotificationModule.Dismiss(notification)
             end
         end)
-    end)
-
-    -- Add the notification to the container
-    notification.Parent = container
-
-    -- Optional: Add progress bar animation
-    if options.Duration then
-        setupProgressBar(notification, options.Duration).Completed:Connect(function()
-            animateNotification(notification, false):Completed:Connect(function()
-                notification:Destroy()
-            end)
-        end)
     end
-
-    -- Optional: Sound Feedback
-    setupSound(notification, options.Sound)
-
-    -- Entry Animation
-    notification.Position = UDim2.new(-1, 0, 0, #container:GetChildren() * 80)
-    animateNotification(notification, true)
+    
+    return notification
 end
 
--- Rate limiter logic
-function Notification:CanSend(type)
-    if not Config.RateLimiter.Enabled then return true end
-    local now = os.clock()
-
-    -- Global flood check
-    table.insert(RateLimiter.GlobalTimestamps, now)
-    for i = #RateLimiter.GlobalTimestamps, 1, -1 do
-        if now - RateLimiter.GlobalTimestamps[i] > 1 then
-            table.remove(RateLimiter.GlobalTimestamps, i)
+-- Dismiss a specific notification
+function NotificationModule.Dismiss(notification)
+    for i, notif in ipairs(notifications) do
+        if notif.Instance == notification then
+            -- Cancel any running tweens
+            if notif.ProgressTween then
+                notif.ProgressTween:Cancel()
+            end
+            
+            -- Slide out animation
+            local slideOut = TweenService:Create(
+                notification,
+                TweenInfo.new(CONFIG.SlideOutDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                {Position = UDim2.new(1, 20, 0, notification.Position.Y.Offset)}
+            )
+            
+            slideOut:Play()
+            slideOut.Completed:Connect(function()
+                notification:Destroy()
+                
+                -- Recalculate positions for remaining notifications
+                local positionOffset = 0
+                for j, remainingNotif in ipairs(notifications) do
+                    if j < i then
+                        positionOffset += remainingNotif.Instance.AbsoluteSize.Y + CONFIG.Spacing
+                        
+                        TweenService:Create(
+                            remainingNotif.Instance,
+                            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                            {Position = UDim2.new(1, -20, 0, positionOffset)}
+                        ):Play()
+                    end
+                end
+                
+                table.remove(notifications, i)
+            end)
+            
+            -- Call callback if dismissed early
+            if notif.Callback and os.clock() - notif.StartTime < notif.Duration then
+                notif.Callback()
+            end
+            
+            break
         end
     end
-    if #RateLimiter.GlobalTimestamps > Config.RateLimiter.MaxPerSecond then
-        return false
-    end
-
-    -- Per-type cooldown
-    local last = RateLimiter.LastTypeSent[type] or 0
-    local cooldown = Config.RateLimiter.PerTypeCooldown[type] or Config.RateLimiter.Cooldown
-    if now - last < cooldown then
-        return false
-    end
-
-    RateLimiter.LastTypeSent[type] = now
-    return true
 end
 
-return Notification
+-- Clear all notifications
+function NotificationModule.ClearAll()
+    for i = #notifications, 1, -1 do
+        NotificationModule.Dismiss(notifications[i].Instance)
+    end
+end
+
+-- Predefined notification types
+function NotificationModule.Success(params)
+    params.Type = "Success"
+    return NotificationModule.Notify(params)
+end
+
+function NotificationModule.Error(params)
+    params.Type = "Error"
+    return NotificationModule.Notify(params)
+end
+
+function NotificationModule.Warning(params)
+    params.Type = "Warning"
+    return NotificationModule.Notify(params)
+end
+
+function NotificationModule.Info(params)
+    params.Type = "Info"
+    return NotificationModule.Notify(params)
+end
+
+return NotificationModule
