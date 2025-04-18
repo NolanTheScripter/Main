@@ -6,13 +6,13 @@ local CONFIG = {
     DefaultDuration = 5,
     PositionAnchor = "BottomRight", -- "BottomRight" or "TopRight"
     MaxNotifications = 5,
-    Size = UDim2.new(0.25, 0, 0.08, 0), -- 25% width, 8% height of screen
+    Size = UDim2.new(0.3, 0, 0.1, 0),
     Spacing = 10,
     ZIndex = 100,
     
     -- Responsive settings
     MobileBreakpoint = 600, -- Screen width in pixels
-    MobileSize = UDim2.new(0.8, 0, 0.12, 0), -- Larger on mobile (80% width, 12% height)
+    MobileSize = UDim2.new(0.85, 0, 0.14, 0),
     MobileSpacing = 8,
     
     -- Colors
