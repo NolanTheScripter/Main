@@ -222,7 +222,7 @@ Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
     for i, notification in ipairs(notifications) do
         if notification and notification.Parent then
             local targetY = calculatePosition(i)
-            notification.Position = UDim2.new(1 - CONFIG.Notification.Offset.X, 0, 1, targetY)
+            notification.Position = UDim2.new(1, 0, 1, targetY)
         end
     end
 end)
