@@ -19,7 +19,7 @@ local CONFIG = {
     Font = Enum.Font.GothamBold,
     TitleSize = 18,
     MessageSize = 15,
-    Size = UDim2.new(0.75, 0, 0.1, 0), -- 75% width, 10% height
+    Size = UDim2.new(0.30, 0, 0.1, 0),
     ZIndex = 999
 }
 
