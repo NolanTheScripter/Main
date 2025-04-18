@@ -4,227 +4,164 @@ local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
 local NotificationModule = {}
+local screenGui = nil
+local notifications = {}
 
--- Configuration with better organization and more options
 local CONFIG = {
-    Notification = {
-        Duration = 4,
-        MaxNotifications = 3,
-        Spacing = 10,
-        Size = UDim2.new(0.3, 0, 0.1, 0),
-        ZIndex = 999,
-    },
-    Appearance = {
-        BackgroundColor = Color3.fromRGB(35, 35, 35),
-        BackgroundTransparency = 0.1,
-        CornerRadius = UDim.new(0, 8),
-        TextColor = Color3.fromRGB(255, 255, 255),
-        Font = Enum.Font.GothamBold,
-        TitleSize = 18,
-        MessageSize = 15,
-        TextPadding = 10,
-        AccentBarWidth = 0.015,
-    },
-    AccentColors = {
+    Size = UDim2.new(0.25, 0, 0.1, 0),
+    Padding = 10,
+    MaxOnScreen = 4,
+    Duration = 4,
+    ZIndex = 50,
+
+    Colors = {
         Success = Color3.fromRGB(76, 175, 80),
         Error = Color3.fromRGB(244, 67, 54),
         Warning = Color3.fromRGB(255, 193, 7),
         Info = Color3.fromRGB(33, 150, 243),
-        Default = Color3.fromRGB(100, 100, 100)
+        Default = Color3.fromRGB(100, 100, 100),
     },
-    Animations = {
-        SlideInDuration = 0.35,
-        SlideOutDuration = 0.4,
-        SlideInEasing = Enum.EasingStyle.Quint,
-        SlideOutEasing = Enum.EasingStyle.Quint,
-        SlideInDirection = Enum.EasingDirection.Out,
-        SlideOutDirection = Enum.EasingDirection.In
+
+    Animation = {
+        InTime = 0.35,
+        OutTime = 0.35,
+        Style = Enum.EasingStyle.Quint,
+        DirIn = Enum.EasingDirection.Out,
+        DirOut = Enum.EasingDirection.In
     }
 }
 
--- Cache for better performance
-local notifications = {}
-local screenGui = nil
-local isGuiInitialized = false
-
--- Utility functions
-local function initializeGui()
-    if isGuiInitialized then return end
-    
+-- UI init
+local function ensureGui()
+    if screenGui then return end
     screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "NotificationUI"
-    screenGui.ResetOnSpawn = false
+    screenGui.Name = "DragnirNotificationUI"
     screenGui.IgnoreGuiInset = true
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    screenGui.ResetOnSpawn = false
     screenGui.Parent = CoreGui
-    
-    isGuiInitialized = true
 end
 
-local function cleanupNotifications()
-    for i = #notifications, 1, -1 do
-        if not notifications[i] or not notifications[i].Parent then
-            table.remove(notifications, i)
-        end
-    end
+-- Calculate Y offset for each notification
+local function getYPosition(index)
+    local height = Camera.ViewportSize.Y
+    local notifHeight = CONFIG.Size.Y.Scale * height
+    return -((notifHeight + CONFIG.Padding) * (index - 1)) - CONFIG.Padding
 end
 
-local function calculatePosition(index)
-    local resolution = Camera.ViewportSize
-    local notificationHeight = CONFIG.Notification.Size.Y.Scale * resolution.Y
-    local spacing = CONFIG.Notification.Spacing
-    
-    return -spacing - ((notificationHeight + spacing) * (index - 1))
-end
-
-local function createNotificationFrame()
+-- Create a single notification frame
+local function createNotification(title, msg, type)
     local container = Instance.new("Frame")
-    container.Size = CONFIG.Notification.Size
+    container.Size = CONFIG.Size
     container.AnchorPoint = Vector2.new(1, 1)
-    container.Position = UDim2.new(1 + 0.05, 0, 1, 0) -- Start offscreen
-    container.BackgroundColor3 = CONFIG.Appearance.BackgroundColor
-    container.BackgroundTransparency = CONFIG.Appearance.BackgroundTransparency
+    container.Position = UDim2.new(1 + 0.05, 0, 1, 0)
+    container.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    container.BackgroundTransparency = 0.05
     container.BorderSizePixel = 0
-    container.ZIndex = CONFIG.Notification.ZIndex
-    container.ClipsDescendants = true
-    
-    -- Add corner rounding
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = CONFIG.Appearance.CornerRadius
-    uiCorner.Parent = container
-    
-    return container
-end
-
-local function createAccentBar(container, notificationType)
-    local accentBar = Instance.new("Frame")
-    accentBar.Size = UDim2.new(CONFIG.Appearance.AccentBarWidth, 0, 1, 0)
-    accentBar.Position = UDim2.new(0, 0, 0, 0)
-    accentBar.BackgroundColor3 = CONFIG.AccentColors[notificationType] or CONFIG.AccentColors.Default
-    accentBar.BorderSizePixel = 0
-    accentBar.ZIndex = CONFIG.Notification.ZIndex + 1
-    accentBar.Parent = container
-    
-    return accentBar
-end
-
-local function createTextLabel(container, text, size, yPosition, ySize)
-    local padding = CONFIG.Appearance.TextPadding
-    
-    local label = Instance.new("TextLabel")
-    label.Text = text
-    label.Font = CONFIG.Appearance.Font
-    label.TextSize = size
-    label.TextColor3 = CONFIG.Appearance.TextColor
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Top
-    label.BackgroundTransparency = 1
-    label.Position = UDim2.new(CONFIG.Appearance.AccentBarWidth.Scale, padding, yPosition.Scale, yPosition.Offset)
-    label.Size = UDim2.new(1 - CONFIG.Appearance.AccentBarWidth.Scale, -padding, ySize.Scale, ySize.Offset)
-    label.ZIndex = CONFIG.Notification.ZIndex + 1
-    label.TextWrapped = true
-    label.Parent = container
-    
-    return label
-end
-
-local function animateNotification(container, targetY, duration, easingStyle, easingDirection, onComplete)
-    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
-    local tween = TweenService:Create(container, tweenInfo, {
-        Position = UDim2.new(1, 0, 1, targetY)
-    })
-    
-    tween:Play()
-    
-    if onComplete then
-        tween.Completed:Connect(onComplete)
-    end
-end
-
-function NotificationModule:Notify(title, message, notificationType)
-    -- Initialize GUI if not already done
-    initializeGui()
-    
-    -- Clean up any dead notifications
-    cleanupNotifications()
-    
-    -- Remove oldest notification if we've reached max
-    if #notifications >= CONFIG.Notification.MaxNotifications then
-        local oldest = table.remove(notifications, 1)
-        if oldest then
-            oldest:Destroy()
-        end
-    end
-    
-    -- Create notification container
-    local container = createNotificationFrame()
+    container.ZIndex = CONFIG.ZIndex
     container.Parent = screenGui
-    
-    -- Add accent bar
-    createAccentBar(container, notificationType)
-    
-    -- Create title and message labels
-    local titleLabel = createTextLabel(container, title or "Notification", 
-        CONFIG.Appearance.TitleSize, UDim2.new(0, 5), UDim2.new(0.4, -5))
-    
-    local messageLabel = createTextLabel(container, message or "", 
-        CONFIG.Appearance.MessageSize, UDim2.new(0.4, 0), UDim2.new(0.6, -5))
-    
-    -- Calculate position based on notification count
-    local targetY = calculatePosition(#notifications + 1)
-    
-    -- Animate in
-    animateNotification(container, targetY, 
-        CONFIG.Animations.SlideInDuration, 
-        CONFIG.Animations.SlideInEasing, 
-        CONFIG.Animations.SlideInDirection)
-    
-    -- Add to notifications table
-    table.insert(notifications, container)
-    
-    -- Set up removal after duration
-    task.delay(CONFIG.Notification.Duration, function()
-        -- Check if notification still exists
-        if not container or not container.Parent then return end
-        
-        -- Animate out
-        animateNotification(container, targetY, 
-            CONFIG.Animations.SlideOutDuration, 
-            CONFIG.Animations.SlideOutEasing, 
-            CONFIG.Animations.SlideOutDirection,
-            function()
-                -- Remove from table and destroy
-                for i, v in ipairs(notifications) do
-                    if v == container then
-                        table.remove(notifications, i)
-                        break
-                    end
-                end
-                container:Destroy()
-            end)
-    end)
-    
+
+    local corner = Instance.new("UICorner", container)
+    corner.CornerRadius = UDim.new(0, 8)
+
+    local accent = Instance.new("Frame", container)
+    accent.Size = UDim2.new(0.015, 0, 1, 0)
+    accent.BackgroundColor3 = CONFIG.Colors[type] or CONFIG.Colors.Default
+    accent.BorderSizePixel = 0
+    accent.ZIndex = CONFIG.ZIndex + 1
+
+    local titleLabel = Instance.new("TextLabel", container)
+    titleLabel.Text = title
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 18
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0.02, 10, 0, 5)
+    titleLabel.Size = UDim2.new(1, -20, 0.4, -5)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.ZIndex = CONFIG.ZIndex + 1
+
+    local messageLabel = Instance.new("TextLabel", container)
+    messageLabel.Text = msg
+    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.TextSize = 15
+    messageLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Position = UDim2.new(0.02, 10, 0.4, 0)
+    messageLabel.Size = UDim2.new(1, -20, 0.6, -5)
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.TextWrapped = true
+    messageLabel.ZIndex = CONFIG.ZIndex + 1
+
     return container
 end
 
--- Optional: Add a function to clear all notifications
-function NotificationModule:ClearAll()
-    for _, notification in ipairs(notifications) do
-        if notification then
-            notification:Destroy()
+-- Move and stack notifications
+local function repositionNotifications()
+    for i, notif in ipairs(notifications) do
+        local targetY = getYPosition(i)
+        local tween = TweenService:Create(notif, TweenInfo.new(CONFIG.Animation.InTime, CONFIG.Animation.Style, CONFIG.Animation.DirIn), {
+            Position = UDim2.new(1, -CONFIG.Padding, 1, targetY)
+        })
+        tween:Play()
+    end
+end
+
+-- Main notification function
+function NotificationModule:Notify(title, msg, type)
+    ensureGui()
+
+    -- Remove oldest if too many
+    if #notifications >= CONFIG.MaxOnScreen then
+        local oldest = table.remove(notifications, 1)
+        if oldest then oldest:Destroy() end
+    end
+
+    local notification = createNotification(title or "Notification", msg or "", type or "Default")
+    table.insert(notifications, notification)
+
+    -- Animate in
+    TweenService:Create(notification, TweenInfo.new(CONFIG.Animation.InTime, CONFIG.Animation.Style, CONFIG.Animation.DirIn), {
+        Position = UDim2.new(1, -CONFIG.Padding, 1, getYPosition(#notifications))
+    }):Play()
+
+    -- Auto-remove after duration
+    task.delay(CONFIG.Duration, function()
+        if notification and notification.Parent then
+            -- Animate out
+            local outTween = TweenService:Create(notification, TweenInfo.new(CONFIG.Animation.OutTime, CONFIG.Animation.Style, CONFIG.Animation.DirOut), {
+                Position = UDim2.new(1 + 0.1, 0, 1, notification.Position.Y.Offset)
+            })
+            outTween:Play()
+            outTween.Completed:Wait()
+
+            -- Cleanup
+            for i, notif in ipairs(notifications) do
+                if notif == notification then
+                    table.remove(notifications, i)
+                    break
+                end
+            end
+            if notification then
+                notification:Destroy()
+            end
+
+            repositionNotifications()
         end
+    end)
+
+    return notification
+end
+
+function NotificationModule:ClearAll()
+    for _, notif in ipairs(notifications) do
+        if notif then notif:Destroy() end
     end
     table.clear(notifications)
 end
 
--- Handle viewport changes to reposition notifications
-Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    for i, notification in ipairs(notifications) do
-        if notification and notification.Parent then
-            local targetY = calculatePosition(i)
-            notification.Position = UDim2.new(1, 0, 1, targetY)
-        end
-    end
-end)
+-- Viewport change = reposition all
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(repositionNotifications)
 
 return NotificationModule
