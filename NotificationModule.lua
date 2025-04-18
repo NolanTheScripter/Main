@@ -6,19 +6,13 @@ local CONFIG = {
     DefaultDuration = 5,
     PositionAnchor = "BottomRight", -- "BottomRight" or "TopRight"
     MaxNotifications = 5,
-    Size = UDim2.new(0, 300, 0, 0), -- Height will auto-adjust
-    AspectRatio = 3, -- Width:Height ratio (e.g., 3 means width is 3x height)
-    MaxWidth = 300,
-    MinWidth = 200,
+    Size = UDim2.new(0.25, 0, 0.08, 0), -- 25% width, 8% height of screen
     Spacing = 10,
     ZIndex = 100,
     
     -- Responsive settings
     MobileBreakpoint = 600, -- Screen width in pixels
-    MobileSize = UDim2.new(0.9, 0, 0, 0), -- Takes 90% of screen width on mobile
-    MobileAspectRatio = 2.5, -- Slightly wider ratio for mobile
-    MobileMaxWidth = math.huge, -- No max width on mobile
-    MobileMinWidth = 0,
+    MobileSize = UDim2.new(0.8, 0, 0.12, 0), -- Larger on mobile (80% width, 12% height)
     MobileSpacing = 8,
     
     -- Colors
@@ -143,7 +137,7 @@ function NotificationModule.UpdatePositions()
         if CONFIG.PositionAnchor == "BottomRight" then
             newPosition = UDim2.new(
                 1, -20, 
-                1, -positionOffset - absoluteSize.Y - (i > 1 and spacing or 0)
+                1, -positionOffset - (absoluteSize.Y + (i > 1 and spacing or 0))
             )
         else -- TopRight
             newPosition = UDim2.new(
@@ -188,29 +182,13 @@ function NotificationModule.Notify(params)
     notification.Size = getConfigValue("Size")
     notification.AnchorPoint = Vector2.new(1, CONFIG.PositionAnchor == "BottomRight" and 1 or 0)
     notification.ZIndex = CONFIG.ZIndex
-    notification.AutomaticSize = Enum.AutomaticSize.Y
     notification.ClipsDescendants = true
     notification.Parent = container
     
-    -- Add aspect ratio constraint
-    local aspectRatio = Instance.new("UIAspectRatioConstraint")
-    aspectRatio.AspectRatio = getConfigValue("AspectRatio")
-    aspectRatio.AspectType = Enum.AspectType.ScaleWithParentSize
-    aspectRatio.DominantAxis = Enum.DominantAxis.Width
-    aspectRatio.Parent = notification
-    
-    -- Add size constraint for mobile
-    if isMobile then
-        local sizeConstraint = Instance.new("UISizeConstraint")
-        sizeConstraint.MaxSize = Vector2.new(getConfigValue("MobileMaxWidth"), math.huge)
-        sizeConstraint.MinSize = Vector2.new(getConfigValue("MobileMinWidth"), 0)
-        sizeConstraint.Parent = notification
-    else
-        local sizeConstraint = Instance.new("UISizeConstraint")
-        sizeConstraint.MaxSize = Vector2.new(getConfigValue("MaxWidth"), math.huge)
-        sizeConstraint.MinSize = Vector2.new(getConfigValue("MinWidth"), 0)
-        sizeConstraint.Parent = notification
-    end
+    -- Add size constraints
+    local sizeConstraint = Instance.new("UISizeConstraint")
+    sizeConstraint.MinSize = Vector2.new(150, 50) -- Minimum reasonable size
+    sizeConstraint.Parent = notification
     
     -- Add stroke
     local stroke = Instance.new("UIStroke")
@@ -229,36 +207,28 @@ function NotificationModule.Notify(params)
     accent.ZIndex = CONFIG.ZIndex + 1
     accent.Parent = notification
     
-    -- Add layout
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 8)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = notification
-    
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        -- Update aspect ratio based on content
-        local contentSize = layout.AbsoluteContentSize
-        if contentSize.Y > 0 then
-            local newRatio = math.clamp(contentSize.X / contentSize.Y, 1.5, 5)
-            aspectRatio.AspectRatio = newRatio
-        end
-    end)
-    
     -- Add padding
     local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 16)
-    padding.PaddingRight = UDim.new(0, 16)
-    padding.PaddingTop = UDim.new(0, 12)
-    padding.PaddingBottom = UDim.new(0, 12)
+    padding.PaddingLeft = UDim.new(0, 12)
+    padding.PaddingRight = UDim.new(0, 12)
+    padding.PaddingTop = UDim.new(0, 8)
+    padding.PaddingBottom = UDim.new(0, 8)
     padding.Parent = notification
     
-    -- Add icon and title container
+    -- Add layout
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 4)
+    layout.FillDirection = Enum.FillDirection.Vertical
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    layout.Parent = notification
+    
+    -- Add title and icon container
     local titleContainer = Instance.new("Frame")
     titleContainer.Name = "TitleContainer"
     titleContainer.BackgroundTransparency = 1
     titleContainer.Size = UDim2.new(1, 0, 0, getConfigValue("TitleSize"))
     titleContainer.LayoutOrder = 1
-    titleContainer.AutomaticSize = Enum.AutomaticSize.Y
     titleContainer.Parent = notification
     
     local titleLayout = Instance.new("UIListLayout")
@@ -286,9 +256,9 @@ function NotificationModule.Notify(params)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Size = UDim2.new(1, -getConfigValue("IconSize") - 8, 0, getConfigValue("TitleSize"))
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextYAlignment = Enum.TextYAlignment.Center
     titleLabel.LayoutOrder = 2
-    titleLabel.AutomaticSize = Enum.AutomaticSize.Y
-    titleLabel.TextWrapped = true
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     titleLabel.Parent = titleContainer
     
     -- Add message
@@ -303,8 +273,9 @@ function NotificationModule.Notify(params)
     messageLabel.TextXAlignment = Enum.TextXAlignment.Left
     messageLabel.TextYAlignment = Enum.TextYAlignment.Top
     messageLabel.LayoutOrder = 2
-    messageLabel.AutomaticSize = Enum.AutomaticSize.Y
     messageLabel.TextWrapped = true
+    messageLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    messageLabel.AutomaticSize = Enum.AutomaticSize.Y
     messageLabel.Parent = notification
     
     -- Add progress bar
@@ -389,7 +360,7 @@ function NotificationModule.Notify(params)
             slideIn:Play()
             NotificationModule.UpdatePositions()
         end
-    end)
+    end
     
     return notification
 end
