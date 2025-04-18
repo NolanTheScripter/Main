@@ -13,7 +13,6 @@ local CONFIG = {
         Spacing = 10,
         Size = UDim2.new(0.3, 0, 0.1, 0),
         ZIndex = 999,
-        Offset = Vector2.new(0.025, 0.025) -- Offset from screen edges
     },
     Appearance = {
         BackgroundColor = Color3.fromRGB(35, 35, 35),
@@ -132,7 +131,7 @@ end
 local function animateNotification(container, targetY, duration, easingStyle, easingDirection, onComplete)
     local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
     local tween = TweenService:Create(container, tweenInfo, {
-        Position = UDim2.new(1 - CONFIG.Notification.Offset.X, 0, 1, targetY)
+        Position = UDim2.new(1, 0, 1, targetY)
     })
     
     tween:Play()
