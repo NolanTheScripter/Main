@@ -574,4 +574,129 @@ function UILibrary:CreateSection(title)
             BackgroundTransparency = 1
         })
         
-        loca
+        local textBox = CreateInstance("TextBox", {
+            Name = "Input",
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Theme.TextBox.Background,
+            TextColor3 = Theme.TextBox.TextColor,
+            PlaceholderColor3 = Theme.TextBox.PlaceholderColor,
+            PlaceholderText = options.Placeholder or "Enter text...",
+            Text = options.Text or "",
+            ClearTextOnFocus = options.ClearTextOnFocus or false,
+            Font = Theme.Label.Font,
+            TextSize = Theme.Label.TextSize
+        }, textBoxFrame)
+        
+        ApplyCornerRadius(textBox)
+        
+        if options.Callback then
+            textBox.FocusLost:Connect(function(enterPressed)
+                options.Callback(textBox.Text, enterPressed)
+            end)
+        end
+        
+        textBoxFrame.Parent = self.Frame
+        return {
+            Set = function(text)
+                textBox.Text = text
+            end,
+            Get = function()
+                return textBox.Text
+            end
+        }
+    end
+    
+    -- Divider component
+    function section:CreateDivider()
+        local divider = CreateInstance("Frame", {
+            Name = "Divider",
+            Size = UDim2.new(1, 0, 0, Theme.Divider.Thickness),
+            BackgroundColor3 = Theme.Divider.Color,
+            BorderSizePixel = 0
+        })
+        
+        divider.Parent = self.Frame
+        return divider
+    end
+    
+    -- Keybind component
+    function section:CreateKeybind(options)
+        options = options or {}
+        options.Default = options.Default or Enum.KeyCode.Unknown
+        
+        local keybind = CreateInstance("Frame", {
+            Name = "Keybind",
+            Size = UDim2.new(1, 0, 0, Theme.Button.Height),
+            BackgroundTransparency = 1
+        })
+        
+        local label = CreateInstance("TextLabel", {
+            Name = "Label",
+            Text = options.Text or "Keybind",
+            Size = UDim2.new(0.7, 0, 1, 0),
+            BackgroundTransparency = 1,
+            TextColor3 = Theme.Label.TextColor,
+            Font = Theme.Label.Font,
+            TextSize = Theme.Label.TextSize,
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, keybind)
+        
+        local button = CreateInstance("TextButton", {
+            Name = "Button",
+            Size = UDim2.new(0.3, 0, 1, 0),
+            Position = UDim2.new(0.7, 0, 0, 0),
+            Text = options.Default.Name,
+            BackgroundColor3 = Theme.Button.Background,
+            TextColor3 = Theme.Button.TextColor,
+            Font = Theme.Button.Font,
+            TextSize = Theme.Button.TextSize
+        }, keybind)
+        
+        ApplyCornerRadius(button)
+        
+        local currentKey = options.Default
+        local listening = false
+        
+        local function setKey(key)
+            currentKey = key
+            button.Text = key.Name
+            if options.Callback then options.Callback(key) end
+        end
+        
+        button.MouseButton1Click:Connect(function()
+            listening = true
+            button.Text = "..."
+        end)
+        
+        local connection
+        connection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+            if listening and not gameProcessed then
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    setKey(input.KeyCode)
+                    listening = false
+                elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    setKey(Enum.KeyCode.Unknown)
+                    listening = false
+                end
+            end
+        end)
+        
+        keybind.Parent = self.Frame
+        return {
+            Set = function(key)
+                setKey(key)
+            end,
+            Get = function()
+                return currentKey
+            end,
+            Destroy = function()
+                connection:Disconnect()
+                keybind:Destroy()
+            end
+        }
+    end
+    
+    return section
+end
+
+return UILibrary
