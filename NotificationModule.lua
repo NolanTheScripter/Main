@@ -7,6 +7,7 @@ local CONFIG = {
     PositionAnchor = "BottomRight", -- "BottomRight" or "TopRight"
     MaxNotifications = 5,
     Size = UDim2.new(0, 300, 0, 0), -- Height will auto-adjust
+    AspectRatio = 3, -- Width:Height ratio (e.g., 3 means width is 3x height)
     MaxWidth = 300,
     MinWidth = 200,
     Spacing = 10,
@@ -15,6 +16,7 @@ local CONFIG = {
     -- Responsive settings
     MobileBreakpoint = 600, -- Screen width in pixels
     MobileSize = UDim2.new(0.9, 0, 0, 0), -- Takes 90% of screen width on mobile
+    MobileAspectRatio = 2.5, -- Slightly wider ratio for mobile
     MobileMaxWidth = math.huge, -- No max width on mobile
     MobileMinWidth = 0,
     MobileSpacing = 8,
@@ -190,9 +192,24 @@ function NotificationModule.Notify(params)
     notification.ClipsDescendants = true
     notification.Parent = container
     
-    -- Make size responsive
+    -- Add aspect ratio constraint
+    local aspectRatio = Instance.new("UIAspectRatioConstraint")
+    aspectRatio.AspectRatio = getConfigValue("AspectRatio")
+    aspectRatio.AspectType = Enum.AspectType.ScaleWithParentSize
+    aspectRatio.DominantAxis = Enum.DominantAxis.Width
+    aspectRatio.Parent = notification
+    
+    -- Add size constraint for mobile
     if isMobile then
-        notification.Size = getConfigValue("Size")
+        local sizeConstraint = Instance.new("UISizeConstraint")
+        sizeConstraint.MaxSize = Vector2.new(getConfigValue("MobileMaxWidth"), math.huge)
+        sizeConstraint.MinSize = Vector2.new(getConfigValue("MobileMinWidth"), 0)
+        sizeConstraint.Parent = notification
+    else
+        local sizeConstraint = Instance.new("UISizeConstraint")
+        sizeConstraint.MaxSize = Vector2.new(getConfigValue("MaxWidth"), math.huge)
+        sizeConstraint.MinSize = Vector2.new(getConfigValue("MinWidth"), 0)
+        sizeConstraint.Parent = notification
     end
     
     -- Add stroke
@@ -217,6 +234,15 @@ function NotificationModule.Notify(params)
     layout.Padding = UDim.new(0, 8)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = notification
+    
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        -- Update aspect ratio based on content
+        local contentSize = layout.AbsoluteContentSize
+        if contentSize.Y > 0 then
+            local newRatio = math.clamp(contentSize.X / contentSize.Y, 1.5, 5)
+            aspectRatio.AspectRatio = newRatio
+        end
+    end)
     
     -- Add padding
     local padding = Instance.new("UIPadding")
