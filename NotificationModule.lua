@@ -130,7 +130,7 @@ function NotificationSystem.Show(title, message, duration)
     
     -- Create new notification
     local notification = createNotificationTemplate()
-    notification.Title.Text = title or ""
+    notification.Text = title or ""
     notification.Message.Text = message
     
     -- Set initial state (offscreen right)
