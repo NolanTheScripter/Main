@@ -1,7 +1,9 @@
--- ModuleScript: MobileNotificationModule
-local MobileNotificationModule = {}
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local Camera = workspace.CurrentCamera
 
--- Configuration
+local NotificationModule = {}
+
 local CONFIG = {
     Duration = 4,
     MaxNotifications = 3,
@@ -17,129 +19,96 @@ local CONFIG = {
     Font = Enum.Font.GothamBold,
     TitleSize = 18,
     MessageSize = 15,
-    Size = UDim2.new(0.85, 0, 0, 100),
-    AnchorOffset = 20,
+    Size = UDim2.new(0.75, 0, 0.1, 0), -- 75% width, 10% height
     ZIndex = 999
 }
 
--- Services
-local TweenService = game:GetService("TweenService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local notifications = {}
 
--- Internal
-local ScreenGui, Container
-local ActiveNotifications = {}
+-- UI Container
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MobileNotificationUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+screenGui.Parent = CoreGui
 
--- Setup GUI
-local function InitContainer()
-    if not ScreenGui then
-        ScreenGui = Instance.new("ScreenGui")
-        ScreenGui.Name = "MobileNotifications"
-        ScreenGui.IgnoreGuiInset = true
-        ScreenGui.ResetOnSpawn = false
-        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+function NotificationModule:Notify(title, message, type)
+    local resolution = Camera.ViewportSize
 
-        Container = Instance.new("Frame")
-        Container.Name = "Container"
-        Container.Size = UDim2.new(1, 0, 1, 0)
-        Container.BackgroundTransparency = 1
-        Container.Parent = ScreenGui
-    end
-end
-
--- Update stacked positions
-local function UpdatePositions()
-    local yOffset = CONFIG.AnchorOffset
-    for _, notif in ipairs(ActiveNotifications) do
-        TweenService:Create(notif, TweenInfo.new(0.3), {
-            Position = UDim2.new(0.5, -CONFIG.Size.X.Offset / 2, 0, yOffset)
-        }):Play()
-        yOffset += notif.AbsoluteSize.Y + CONFIG.Spacing
-    end
-end
-
--- Create new notification
-function MobileNotificationModule.Notify(params)
-    InitContainer()
-
-    if #ActiveNotifications >= CONFIG.MaxNotifications then
-        local removed = table.remove(ActiveNotifications, 1)
-        removed:Destroy()
+    if #notifications >= CONFIG.MaxNotifications then
+        table.remove(notifications, 1):Destroy()
     end
 
-    local type = params.Type or "Info"
-    local title = params.Title or "Notice"
-    local message = params.Message or ""
-    local duration = params.Duration or CONFIG.Duration
-    local accentColor = CONFIG.AccentColors[type] or CONFIG.AccentColors.Info
+    local container = Instance.new("Frame")
+    container.Size = CONFIG.Size
+    container.AnchorPoint = Vector2.new(1, 1)
+    container.Position = UDim2.new(1 + 0.05, 0, 1, -CONFIG.Spacing) -- start offscreen
+    container.BackgroundColor3 = CONFIG.BackgroundColor
+    container.BorderSizePixel = 0
+    container.ZIndex = CONFIG.ZIndex
+    container.Parent = screenGui
 
-    local notif = Instance.new("Frame")
-    notif.BackgroundColor3 = CONFIG.BackgroundColor
-    notif.Size = CONFIG.Size
-    notif.AnchorPoint = Vector2.new(0.5, 0)
-    notif.Position = UDim2.new(0.5, 0, 1, 0)
-    notif.ZIndex = CONFIG.ZIndex
-    notif.ClipsDescendants = true
-    notif.Parent = Container
+    local accentBar = Instance.new("Frame")
+    accentBar.Size = UDim2.new(0.015, 0, 1, 0)
+    accentBar.Position = UDim2.new(0, 0, 0, 0)
+    accentBar.BackgroundColor3 = CONFIG.AccentColors[type] or CONFIG.AccentColors.Info
+    accentBar.BorderSizePixel = 0
+    accentBar.ZIndex = CONFIG.ZIndex + 1
+    accentBar.Parent = container
 
-    local stroke = Instance.new("UIStroke", notif)
-    stroke.Color = Color3.fromRGB(50, 50, 50)
-    stroke.Thickness = 1
-
-    local accent = Instance.new("Frame", notif)
-    accent.BackgroundColor3 = accentColor
-    accent.Size = UDim2.new(0, 4, 1, 0)
-    accent.Position = UDim2.new(0, 0, 0, 0)
-    accent.BorderSizePixel = 0
-
-    local titleLabel = Instance.new("TextLabel", notif)
-    titleLabel.Text = title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Text = title or "Notification"
     titleLabel.Font = CONFIG.Font
     titleLabel.TextSize = CONFIG.TitleSize
     titleLabel.TextColor3 = CONFIG.TextColor
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Position = UDim2.new(0, 10, 0, 8)
-    titleLabel.Size = UDim2.new(1, -20, 0, 20)
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0.025, 10, 0, 5)
+    titleLabel.Size = UDim2.new(1, -20, 0.5, -5)
+    titleLabel.ZIndex = CONFIG.ZIndex + 1
+    titleLabel.Parent = container
 
-    local messageLabel = Instance.new("TextLabel", notif)
-    messageLabel.Text = message
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Text = message or ""
     messageLabel.Font = CONFIG.Font
     messageLabel.TextSize = CONFIG.MessageSize
     messageLabel.TextColor3 = CONFIG.TextColor
-    messageLabel.BackgroundTransparency = 1
-    messageLabel.Position = UDim2.new(0, 10, 0, 34)
-    messageLabel.Size = UDim2.new(1, -20, 1, -40)
     messageLabel.TextXAlignment = Enum.TextXAlignment.Left
-    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
-    messageLabel.TextWrapped = true
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Position = UDim2.new(0.025, 10, 0.5, 0)
+    messageLabel.Size = UDim2.new(1, -20, 0.5, -5)
+    messageLabel.ZIndex = CONFIG.ZIndex + 1
+    messageLabel.Parent = container
 
-    table.insert(ActiveNotifications, notif)
-    UpdatePositions()
+    -- Stack below previous
+    local totalHeight = (CONFIG.Size.Y.Scale * resolution.Y + CONFIG.Spacing)
+    local newY = -CONFIG.Spacing
+    for _, notif in ipairs(notifications) do
+        newY = newY - (totalHeight)
+    end
+    table.insert(notifications, container)
 
     -- Animate In
-    TweenService:Create(notif, TweenInfo.new(0.3), {
-        Position = UDim2.new(0.5, -CONFIG.Size.X.Offset / 2, 0, notif.Position.Y.Offset)
+    TweenService:Create(container, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1 - 0.025, 0, 1, newY)
     }):Play()
 
-    -- Auto remove
-    task.delay(duration, function()
-        for i, n in ipairs(ActiveNotifications) do
-            if n == notif then
-                table.remove(ActiveNotifications, i)
+    -- Wait & Animate Out
+    task.delay(CONFIG.Duration, function()
+        TweenService:Create(container, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Position = UDim2.new(1 + 0.3, 0, 1, newY)
+        }):Play()
+
+        task.wait(0.5)
+        for i, v in ipairs(notifications) do
+            if v == container then
+                table.remove(notifications, i)
                 break
             end
         end
-        TweenService:Create(notif, TweenInfo.new(0.3), {
-            Position = UDim2.new(0.5, -CONFIG.Size.X.Offset / 2, 1, 20)
-        }):Play()
-        task.delay(0.3, function()
-            notif:Destroy()
-            UpdatePositions()
-        end)
+        container:Destroy()
     end)
 end
 
-return MobileNotificationModule
+return NotificationModule
