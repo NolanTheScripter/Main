@@ -4,7 +4,7 @@ UILibrary.__index = UILibrary
 -- Theme configuration with more customization options
 local Theme = {
     Window = {
-        Background = Color3.fromRGB(30, 30, 30),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
         Size = UDim2.new(0, 400, 0, 500),
         Title = {
             TextColor = Color3.new(1, 1, 1),
@@ -14,14 +14,14 @@ local Theme = {
         }
     },
     Tab = {
-        Background = Color3.fromRGB(50, 50, 50),
+        BackgroundColor3 = Color3.fromRGB(50, 50, 50),
         Height = 40,
         TextColor = Color3.new(1, 1, 1),
         Font = Enum.Font.Gotham,
         TextSize = 14
     },
     Section = {
-        Background = Color3.fromRGB(40, 40, 40),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
         Spacing = 5,
         Padding = 10,
         Title = {
@@ -31,7 +31,7 @@ local Theme = {
         }
     },
     Button = {
-        Background = Color3.fromRGB(70, 70, 70),
+        BackgroundColor3 = Color3.fromRGB(70, 70, 70),
         HoverColor = Color3.fromRGB(90, 90, 90),
         PressedColor = Color3.fromRGB(50, 50, 50),
         TextColor = Color3.new(1, 1, 1),
@@ -47,7 +47,7 @@ local Theme = {
         HoverColor = Color3.fromRGB(80, 80, 80)
     },
     Toggle = {
-        Background = Color3.fromRGB(70, 70, 70),
+        BackgroundColor3 = Color3.fromRGB(70, 70, 70),
         OnColor = Color3.fromRGB(0, 170, 255),
         OffColor = Color3.fromRGB(120, 120, 120),
         Size = UDim2.new(0, 50, 0, 25)
@@ -60,7 +60,7 @@ local Theme = {
         HandleSize = 15
     },
     TextBox = {
-        Background = Color3.fromRGB(60, 60, 60),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 60),
         TextColor = Color3.new(1, 1, 1),
         PlaceholderColor = Color3.fromRGB(180, 180, 180),
         Height = 30
