@@ -156,11 +156,11 @@ function UILibrary:CreateWindow(options)
         Name = "Title",
         Parent = window.MainFrame,
         Text = options.Text or "Window",
-        Size = UDim2.new(1, 0, 0, Theme.Window.Title.Height),
-        TextColor3 = Theme.Window.Title.TextColor,
+        Size = UDim2.new(1, 0, 0, Theme.Window.Text.Height),
+        TextColor3 = Theme.Window.Text.TextColor,
         BackgroundTransparency = 1,
-        Font = Theme.Window.Title.Font,
-        TextSize = Theme.Window.Title.TextSize
+        Font = Theme.Window.Text.Font,
+        TextSize = Theme.Window.Text.TextSize
     })
     
     window.ContentFrame = CreateInstance("Frame", {
@@ -237,11 +237,11 @@ function UILibrary:CreateSection(title)
             Name = "Title",
             Parent = section.Frame,
             Text = title,
-            Size = UDim2.new(1, 0, 0, Theme.Window.Title.Height),
-            TextColor3 = Theme.Section.Title.TextColor,
+            Size = UDim2.new(1, 0, 0, Theme.Window.Text.Height),
+            TextColor3 = Theme.Section.Text.TextColor,
             BackgroundTransparency = 1,
-            Font = Theme.Section.Title.Font,
-            TextSize = Theme.Section.Title.TextSize
+            Font = Theme.Section.Text.Font,
+            TextSize = Theme.Section.Text.TextSize
         })
     end
     
