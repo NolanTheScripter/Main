@@ -4,11 +4,20 @@ local NotificationModule = {}
 -- Configuration
 local CONFIG = {
     DefaultDuration = 5,
-    Position = UDim2.new(1, -20, 0, 20),
+    PositionAnchor = "BottomRight", -- "BottomRight" or "TopRight"
+    MaxNotifications = 5,
     Size = UDim2.new(0, 300, 0, 0), -- Height will auto-adjust
     MaxWidth = 300,
+    MinWidth = 200,
     Spacing = 10,
     ZIndex = 100,
+    
+    -- Responsive settings
+    MobileBreakpoint = 600, -- Screen width in pixels
+    MobileSize = UDim2.new(0.9, 0, 0, 0), -- Takes 90% of screen width on mobile
+    MobileMaxWidth = math.huge, -- No max width on mobile
+    MobileMinWidth = 0,
+    MobileSpacing = 8,
     
     -- Colors
     BackgroundColor3 = Color3.fromRGB(40, 40, 40),
@@ -20,6 +29,8 @@ local CONFIG = {
     MessageFont = Enum.Font.Gotham,
     TitleSize = 18,
     MessageSize = 14,
+    MobileTitleSize = 16,
+    MobileMessageSize = 13,
     
     -- Icons
     Icons = {
@@ -28,11 +39,14 @@ local CONFIG = {
         Warning = "rbxassetid://6031090997",
         Info = "rbxassetid://6031090990"
     },
+    IconSize = 18,
+    MobileIconSize = 16,
     
     -- Animations
     SlideInDuration = 0.3,
     SlideOutDuration = 0.3,
     ProgressSpeed = 1, -- 1 = normal speed
+    StackAnimationDelay = 0.05, -- Delay between stacked notifications animations
 }
 
 -- Types
@@ -58,11 +72,31 @@ local TYPES = {
 -- Services
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
 
 -- Internal variables
 local notifications = {}
 local container
 local screenGui
+local isMobile = false
+local currentScreenSize
+
+-- Check if device is mobile
+local function checkMobile()
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    currentScreenSize = viewportSize
+    isMobile = viewportSize.X <= CONFIG.MobileBreakpoint
+    return isMobile
+end
+
+-- Get configuration value based on device
+local function getConfigValue(key)
+    if isMobile and CONFIG["Mobile"..key] ~= nil then
+        return CONFIG["Mobile"..key]
+    end
+    return CONFIG[key]
+end
 
 -- Create the container if it doesn't exist
 local function ensureContainer()
@@ -71,7 +105,7 @@ local function ensureContainer()
         screenGui.Name = "NotificationSystem"
         screenGui.ResetOnSpawn = false
         screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
         
         container = Instance.new("Frame")
         container.Name = "NotificationContainer"
@@ -79,6 +113,55 @@ local function ensureContainer()
         container.Size = UDim2.new(1, 0, 1, 0)
         container.Position = UDim2.new(0, 0, 0, 0)
         container.Parent = screenGui
+        
+        -- Handle screen size changes
+        workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            checkMobile()
+            NotificationModule.UpdatePositions()
+        end)
+        
+        checkMobile()
+    end
+end
+
+-- Update all notification positions
+function NotificationModule.UpdatePositions()
+    if not container or #notifications == 0 then return end
+    
+    local positionOffset = 0
+    local spacing = getConfigValue("Spacing")
+    local anchorPoint = CONFIG.PositionAnchor == "BottomRight" and 1 or 0
+    
+    for i, notif in ipairs(notifications) do
+        local notification = notif.Instance
+        local absoluteSize = notification.AbsoluteSize
+        
+        -- Calculate new position
+        local newPosition
+        if CONFIG.PositionAnchor == "BottomRight" then
+            newPosition = UDim2.new(
+                1, -20, 
+                1, -positionOffset - absoluteSize.Y - (i > 1 and spacing or 0)
+            )
+        else -- TopRight
+            newPosition = UDim2.new(
+                1, -20,
+                0, positionOffset + (i > 1 and spacing or 0)
+            )
+        end
+        
+        -- Animate to new position with delay for stacking effect
+        task.delay(CONFIG.StackAnimationDelay * (i-1), function()
+            if notification and notification.Parent then
+                TweenService:Create(
+                    notification,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {Position = newPosition}
+                ):Play()
+            end
+        end)
+        
+        positionOffset += absoluteSize.Y + (i > 1 and spacing or 0)
     end
 end
 
@@ -97,15 +180,20 @@ function NotificationModule.Notify(params)
     
     -- Create notification frame
     local notification = Instance.new("Frame")
-    notification.Name = "Notification"
+    notification.Name = "Notification_"..tostring(os.clock())
     notification.BackgroundColor3 = CONFIG.BackgroundColor3
     notification.BackgroundTransparency = CONFIG.BackgroundTransparency
-    notification.Size = CONFIG.Size
-    notification.Position = UDim2.new(1, 0, 0, 0)
-    notification.AnchorPoint = Vector2.new(1, 0)
+    notification.Size = getConfigValue("Size")
+    notification.AnchorPoint = Vector2.new(1, CONFIG.PositionAnchor == "BottomRight" and 1 or 0)
     notification.ZIndex = CONFIG.ZIndex
     notification.AutomaticSize = Enum.AutomaticSize.Y
+    notification.ClipsDescendants = true
     notification.Parent = container
+    
+    -- Make size responsive
+    if isMobile then
+        notification.Size = getConfigValue("Size")
+    end
     
     -- Add stroke
     local stroke = Instance.new("UIStroke")
@@ -142,7 +230,7 @@ function NotificationModule.Notify(params)
     local titleContainer = Instance.new("Frame")
     titleContainer.Name = "TitleContainer"
     titleContainer.BackgroundTransparency = 1
-    titleContainer.Size = UDim2.new(1, 0, 0, CONFIG.TitleSize)
+    titleContainer.Size = UDim2.new(1, 0, 0, getConfigValue("TitleSize"))
     titleContainer.LayoutOrder = 1
     titleContainer.AutomaticSize = Enum.AutomaticSize.Y
     titleContainer.Parent = notification
@@ -158,7 +246,7 @@ function NotificationModule.Notify(params)
     icon.Name = "Icon"
     icon.Image = typeConfig.Icon
     icon.BackgroundTransparency = 1
-    icon.Size = UDim2.new(0, CONFIG.TitleSize, 0, CONFIG.TitleSize)
+    icon.Size = UDim2.new(0, getConfigValue("IconSize"), 0, getConfigValue("IconSize"))
     icon.LayoutOrder = 1
     icon.Parent = titleContainer
     
@@ -166,22 +254,23 @@ function NotificationModule.Notify(params)
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Name = "Title"
     titleLabel.Text = title
-    titleLabel.Font = CONFIG.TitleFont
-    titleLabel.TextSize = CONFIG.TitleSize
+    titleLabel.Font = getConfigValue("TitleFont")
+    titleLabel.TextSize = getConfigValue("TitleSize")
     titleLabel.TextColor3 = Color3.new(1, 1, 1)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Size = UDim2.new(1, -CONFIG.TitleSize - 8, 0, CONFIG.TitleSize)
+    titleLabel.Size = UDim2.new(1, -getConfigValue("IconSize") - 8, 0, getConfigValue("TitleSize"))
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.LayoutOrder = 2
     titleLabel.AutomaticSize = Enum.AutomaticSize.Y
+    titleLabel.TextWrapped = true
     titleLabel.Parent = titleContainer
     
     -- Add message
     local messageLabel = Instance.new("TextLabel")
     messageLabel.Name = "Message"
     messageLabel.Text = message
-    messageLabel.Font = CONFIG.MessageFont
-    messageLabel.TextSize = CONFIG.MessageSize
+    messageLabel.Font = getConfigValue("MessageFont")
+    messageLabel.TextSize = getConfigValue("MessageSize")
     messageLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
     messageLabel.BackgroundTransparency = 1
     messageLabel.Size = UDim2.new(1, 0, 0, 0)
@@ -189,6 +278,7 @@ function NotificationModule.Notify(params)
     messageLabel.TextYAlignment = Enum.TextYAlignment.Top
     messageLabel.LayoutOrder = 2
     messageLabel.AutomaticSize = Enum.AutomaticSize.Y
+    messageLabel.TextWrapped = true
     messageLabel.Parent = notification
     
     -- Add progress bar
@@ -210,20 +300,16 @@ function NotificationModule.Notify(params)
     progressFill.Size = UDim2.new(1, 0, 1, 0)
     progressFill.Parent = progressBar
     
-    -- Calculate position (stacking)
-    local positionOffset = 0
-    for _, notif in ipairs(notifications) do
-        positionOffset += notif.Instance.AbsoluteSize.Y + CONFIG.Spacing
-    end
+    -- Initial position (off-screen)
+    local initialX = 20
+    notification.Position = UDim2.new(1, initialX, CONFIG.PositionAnchor == "BottomRight" and 1 or 0, 0)
     
     -- Slide in animation
-    notification.Position = UDim2.new(1, 20, 0, positionOffset)
     local slideIn = TweenService:Create(
         notification,
         TweenInfo.new(CONFIG.SlideInDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {Position = UDim2.new(1, -20, 0, positionOffset)}
+        {Position = UDim2.new(1, -20, CONFIG.PositionAnchor == "BottomRight" and 1 or 0, 0)}
     )
-    slideIn:Play()
     
     -- Progress animation
     local progressTween = TweenService:Create(
@@ -242,27 +328,42 @@ function NotificationModule.Notify(params)
         Callback = callback
     }
     
-    table.insert(notifications, notificationData)
+    table.insert(notifications, 1, notificationData) -- Insert at beginning for bottom-up stacking
+    
+    -- Enforce max notifications
+    if #notifications > CONFIG.MaxNotifications then
+        NotificationModule.Dismiss(notifications[#notifications].Instance)
+    end
     
     -- Start progress if duration > 0
     if duration > 0 then
         progressTween:Play()
         
         -- Set up auto-removal
-        delay(duration, function()
-            NotificationModule.Dismiss(notification)
+        task.delay(duration, function()
+            if notification and notification.Parent then
+                NotificationModule.Dismiss(notification)
+            end
         end)
     end
     
     -- Make notification clickable if there's a callback
     if callback then
         notification.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 callback()
                 NotificationModule.Dismiss(notification)
             end
         end)
     end
+    
+    -- Play slide in animation after a small delay for stacking effect
+    task.delay(CONFIG.StackAnimationDelay * (#notifications-1), function()
+        if notification and notification.Parent then
+            slideIn:Play()
+            NotificationModule.UpdatePositions()
+        end
+    end)
     
     return notification
 end
@@ -280,28 +381,24 @@ function NotificationModule.Dismiss(notification)
             local slideOut = TweenService:Create(
                 notification,
                 TweenInfo.new(CONFIG.SlideOutDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                {Position = UDim2.new(1, 20, 0, notification.Position.Y.Offset)}
+                {Position = UDim2.new(
+                    1, 20, 
+                    CONFIG.PositionAnchor == "BottomRight" and 1 or 0, 
+                    notification.Position.Y.Offset
+                )}
             )
             
             slideOut:Play()
             slideOut.Completed:Connect(function()
-                notification:Destroy()
-                
-                -- Recalculate positions for remaining notifications
-                local positionOffset = 0
-                for j, remainingNotif in ipairs(notifications) do
-                    if j < i then
-                        positionOffset += remainingNotif.Instance.AbsoluteSize.Y + CONFIG.Spacing
-                        
-                        TweenService:Create(
-                            remainingNotif.Instance,
-                            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                            {Position = UDim2.new(1, -20, 0, positionOffset)}
-                        ):Play()
-                    end
+                if notification.Parent then
+                    notification:Destroy()
                 end
                 
+                -- Remove from table
                 table.remove(notifications, i)
+                
+                -- Update positions of remaining notifications
+                NotificationModule.UpdatePositions()
             end)
             
             -- Call callback if dismissed early
@@ -341,5 +438,8 @@ function NotificationModule.Info(params)
     params.Type = "Info"
     return NotificationModule.Notify(params)
 end
+
+-- Initialize
+checkMobile()
 
 return NotificationModule
