@@ -135,7 +135,7 @@ function UILibrary:CreateWindow(options)
     local window = setmetatable({}, self)
     
     window.Gui = CreateInstance("ScreenGui", {
-        Name = options.Title or "Window",
+        Name = options.Text or "Window",
         Parent = options.Parent or game.Players.LocalPlayer:WaitForChild("PlayerGui"),
         ResetOnSpawn = options.ResetOnSpawn or false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -155,7 +155,7 @@ function UILibrary:CreateWindow(options)
     window.Title = CreateInstance("TextLabel", {
         Name = "Title",
         Parent = window.MainFrame,
-        Text = options.Title or "Window",
+        Text = options.Text or "Window",
         Size = UDim2.new(1, 0, 0, Theme.Window.Title.Height),
         TextColor3 = Theme.Window.Title.TextColor,
         BackgroundTransparency = 1,
@@ -166,8 +166,8 @@ function UILibrary:CreateWindow(options)
     window.ContentFrame = CreateInstance("Frame", {
         Name = "Content",
         Parent = window.MainFrame,
-        Position = UDim2.new(0, 0, 0, Theme.Window.Title.Height),
-        Size = UDim2.new(1, 0, 1, -Theme.Window.Title.Height),
+        Position = UDim2.new(0, 0, 0, Theme.Window.Text.Height),
+        Size = UDim2.new(1, 0, 1, -Theme.Window.Text.Height),
         BackgroundTransparency = 1
     })
     
