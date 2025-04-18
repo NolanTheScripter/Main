@@ -276,16 +276,16 @@ function Notifications.show(title, message, icon)
     notificationManager:show(title, message, icon)
 end
 
-function Notifications.error(message)
-    notificationManager:show("Error", message, "rbxassetid://3926305904") -- Red X icon
+function Notifications.error(message, icon)
+    notificationManager:show("Error", message, icon) -- Red X icon
 end
 
-function Notifications.success(message)
-    notificationManager:show("Success", message, "rbxassetid://3926305901") -- Green check icon
+function Notifications.success(message, icon)
+    notificationManager:show("Success", message, icon) -- Green check icon
 end
 
-function Notifications.warning(message)
-    notificationManager:show("Warning", message, "rbxassetid://3926305907") -- Yellow warning icon
+function Notifications.warning(message, icon)
+    notificationManager:show("Warning", message, icon) -- Yellow warning icon
 end
 
 return Notifications
