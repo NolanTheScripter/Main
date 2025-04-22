@@ -1,8 +1,281 @@
 -- Python.lua
 local Python = {}
 
--- Basic Functions (already implemented)
--- ... (keep all existing functions from previous implementation)
+-- Basic Functions
+function Python.print(...)
+  local args = {...}
+  for i, v in ipairs(args) do
+    args[i] = tostring(v)
+  end
+  print(table.concat(args, " "))
+end
+
+-- range(start, stop, step)
+function Python.range(start, stop, step)
+  local result = {}
+  if not stop then
+    stop = start
+    start = 0
+  end
+  step = step or 1
+  for i = start, stop - 1, step do
+    table.insert(result, i)
+  end
+  return result
+end
+
+-- len(table or string)
+function Python.len(obj)
+  if type(obj) == "table" or type(obj) == "string" then
+    return #obj
+  end
+  error("Unsupported type for len()")
+end
+
+-- enumerate(table)
+function Python.enumerate(tbl)
+  local result = {}
+  for i, v in ipairs(tbl) do
+    table.insert(result, {i - 1, v})
+  end
+  return result
+end
+
+-- map(func, table)
+function Python.map(func, tbl)
+  local result = {}
+  for i, v in ipairs(tbl) do
+    result[i] = func(v)
+  end
+  return result
+end
+
+-- filter(func, table)
+function Python.filter(func, tbl)
+  local result = {}
+  for _, v in ipairs(tbl) do
+    if func(v) then
+      table.insert(result, v)
+    end
+  end
+  return result
+end
+
+-- sum(table)
+function Python.sum(tbl)
+  local total = 0
+  for _, v in ipairs(tbl) do
+    total = total + v
+  end
+  return total
+end
+
+-- max(table)
+function Python.max(tbl)
+  local max = tbl[1]
+  for i = 2, #tbl do
+    if tbl[i] > max then
+      max = tbl[i]
+    end
+  end
+  return max
+end
+
+-- min(table)
+function Python.min(tbl)
+  local min = tbl[1]
+  for i = 2, #tbl do
+    if tbl[i] < min then
+      min = tbl[i]
+    end
+  end
+  return min
+end
+
+-- reversed(table)
+function Python.reversed(tbl)
+  local result = {}
+  for i = #tbl, 1, -1 do
+    table.insert(result, tbl[i])
+  end
+  return result
+end
+
+-- zip(tbl1, tbl2, ...)
+function Python.zip(...)
+  local tables = {...}
+  local result = {}
+  local min_len = math.min(unpack(Python.map(Python.len, tables)))
+  for i = 1, min_len do
+    local zipped = {}
+    for _, t in ipairs(tables) do
+      table.insert(zipped, t[i])
+    end
+    table.insert(result, zipped)
+  end
+  return result
+end
+
+-- List/Tuple Operations
+function Python.slice(tbl, start, stop, step)
+  local result = {}
+  start = start or 1
+  stop = stop or #tbl
+  step = step or 1
+  
+  if start < 0 then start = #tbl + start + 1 end
+  if stop < 0 then stop = #tbl + stop + 1 end
+  
+  for i = start, stop, step do
+    table.insert(result, tbl[i])
+  end
+  return result
+end
+
+function Python.sorted(tbl, key, reverse)
+  local result = Python.slice(tbl) -- make a copy
+  table.sort(result, function(a, b)
+    local a_val = key and key(a) or a
+    local b_val = key and key(b) or b
+    if reverse then
+      return a_val > b_val
+    else
+      return a_val < b_val
+    end
+  end)
+  return result
+end
+
+function Python.any(tbl)
+  for _, v in ipairs(tbl) do
+    if v then return true end
+  end
+  return false
+end
+
+function Python.all(tbl)
+  for _, v in ipairs(tbl) do
+    if not v then return false end
+  end
+  return true
+end
+
+-- String Operations
+function Python.str(obj)
+  return tostring(obj)
+end
+
+function Python.join(sep, tbl)
+  return table.concat(tbl, sep)
+end
+
+function Python.split(str, sep)
+  sep = sep or "%s"
+  local result = {}
+  for part in str:gmatch("([^"..sep.."]+)") do
+    table.insert(result, part)
+  end
+  return result
+end
+
+function Python.strip(str, chars)
+  chars = chars or "%s"
+  return str:gsub("^["..chars.."]*(.-)["..chars.."]*$", "%1")
+end
+
+-- Dictionary/Table Operations
+function Python.keys(tbl)
+  local result = {}
+  for k, _ in pairs(tbl) do
+    table.insert(result, k)
+  end
+  return result
+end
+
+function Python.values(tbl)
+  local result = {}
+  for _, v in pairs(tbl) do
+    table.insert(result, v)
+  end
+  return result
+end
+
+function Python.items(tbl)
+  local result = {}
+  for k, v in pairs(tbl) do
+    table.insert(result, {k, v})
+  end
+  return result
+end
+
+function Python.get(tbl, key, default)
+  if tbl[key] ~= nil then
+    return tbl[key]
+  else
+    return default
+  end
+end
+
+-- Functional Programming
+function Python.reduce(func, tbl, initial)
+  local acc = initial or tbl[1]
+  local start = initial and 1 or 2
+  for i = start, #tbl do
+    acc = func(acc, tbl[i])
+  end
+  return acc
+end
+
+-- Type Conversion
+function Python.list(obj)
+  if type(obj) == "table" then
+    return Python.slice(obj)
+  elseif type(obj) == "string" then
+    local result = {}
+    for c in obj:gmatch(".") do
+      table.insert(result, c)
+    end
+    return result
+  else
+    error("Unsupported type for list()")
+  end
+end
+
+function Python.dict(tbl)
+  if not tbl then return {} end
+  local result = {}
+  for _, pair in ipairs(tbl) do
+    if type(pair) == "table" and #pair >= 2 then
+      result[pair[1]] = pair[2]
+    end
+  end
+  return result
+end
+
+-- Utility Functions
+function Python.type(obj)
+  return type(obj)
+end
+
+function Python.isinstance(obj, typ)
+  if typ == "list" or typ == "tuple" then
+    return type(obj) == "table" and #obj > 0
+  elseif typ == "dict" then
+    return type(obj) == "table" and not (#obj > 0)
+  else
+    return type(obj) == typ
+  end
+end
+
+function Python.help()
+  print("Python-like functions for Lua")
+  print("Available functions:")
+  for k, _ in pairs(Python) do
+    if type(Python[k]) == "function" then
+      print("- "..k)
+    end
+  end
+end
 
 ------------------
 -- Time/Datetime --
