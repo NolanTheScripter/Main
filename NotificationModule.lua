@@ -1,174 +1,290 @@
--- NotificationModule.lua
--- Improved modular notification system with glow, stacking, sounds, queue, click-to-dismiss, and onClick callbacks.
+local library = {}
 
+-- Dependencies
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-local NotificationModule = {}
-
--- Notification sound effects (soft UI chimes)
-local function createSound(id)
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://" .. tostring(id)
-    sound.Volume = 0.5
-    sound.Parent = SoundService
-    return sound
-end
-
-local appearSound = createSound(6026984224) -- Soft UI ping
-local disappearSound = createSound(6026985440) -- Soft UI fade
-
--- Notification container GUI setup
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "NotificationGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
-
-local container = Instance.new("Frame")
-container.Name = "NotificationContainer"
-container.Size = UDim2.new(0.3, 0, 0.6, 0)
-container.Position = UDim2.new(1, -20, 1, -20)
-container.AnchorPoint = Vector2.new(1, 1)
-container.BackgroundTransparency = 1
-container.Parent = screenGui
-
-local list = Instance.new("UIListLayout")
-list.SortOrder = Enum.SortOrder.LayoutOrder
-list.VerticalAlignment = Enum.VerticalAlignment.Bottom
-list.Padding = UDim.new(0, 10)
-list.Parent = container
-
-local padding = Instance.new("UIPadding")
-padding.PaddingBottom = UDim.new(0, 10)
-padding.PaddingRight = UDim.new(0, 10)
-padding.Parent = container
-
--- Color schemes
-local notificationColors = {
-    Info = {bg = Color3.fromRGB(45, 125, 255), text = Color3.new(1, 1, 1)},
-    Success = {bg = Color3.fromRGB(40, 167, 69), text = Color3.new(1, 1, 1)},
-    Warning = {bg = Color3.fromRGB(255, 193, 7), text = Color3.new(0, 0, 0)},
-    Error = {bg = Color3.fromRGB(220, 53, 69), text = Color3.new(1, 1, 1)},
-    Neutral = {bg = Color3.fromRGB(108, 117, 125), text = Color3.new(1, 1, 1)},
-    Achievement = {bg = Color3.fromRGB(255, 215, 0), text = Color3.new(0, 0, 0)},
-    Update = {bg = Color3.fromRGB(0, 123, 255), text = Color3.new(1, 1, 1)},
-    Reminder = {bg = Color3.fromRGB(255, 87, 34), text = Color3.new(1, 1, 1)},
-    Dark = {bg = Color3.fromRGB(60, 60, 60), text = Color3.new(1, 1, 1)}
+-- Configuration
+local CONFIG = {
+    Position = "BottomRight", -- Options: "BottomRight", "TopRight", "TopLeft", "BottomLeft"
+    MaxNotifications = 5,     -- Maximum simultaneous visible notifications
+    NotificationWidth = 350,
+    MinNotificationHeight = 80,
+    MaxNotificationHeight = 200,
+    Padding = 10,
+    InternalPadding = 10,
+    IconSize = 40,
+    DisplayTime = 5,
+    
+    BackgroundColor = Color3.fromRGB(45, 45, 45),
+    BackgroundTransparency = 0.1,
+    StrokeColor = Color3.fromRGB(80, 80, 80),
+    StrokeThickness = 1,
+    TextColor = Color3.fromRGB(240, 240, 240),
+    
+    TitleFont = Enum.Font.SourceSansSemibold,
+    TitleSize = 18,
+    ContentFont = Enum.Font.SourceSans,
+    ContentSize = 15,
+    
+    EntryEasingStyle = Enum.EasingStyle.Back,
+    EntryEasingDirection = Enum.EasingDirection.Out,
+    EntryTime = 0.5,
+    
+    ExitEasingStyle = Enum.EasingStyle.Quad,
+    ExitEasingDirection = Enum.EasingDirection.In,
+    ExitTime = 0.4,
+    
+    Icons = {
+        Info = "rbxassetid://112082878863231",
+        Warn = "rbxassetid://117107314745025",
+        Error = "rbxassetid://77067602950967"
+    }
 }
 
--- Queue system
-local queue = {}
-local activeCount = 0
-local maxVisible = 5
+-- Internal state
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = nil
+local notifications = {}
+local initialized = false
 
-local function createNotification(title, description, notificationType, duration, priority, onClick)
-    description = description or ""
-    duration = duration or 5
-    priority = priority or 1
+-- Position calculations
+local positionConfig = {
+    BottomRight = {
+        anchor = Vector2.new(1, 1),
+        startPos = UDim2.new(1, 0, 1, 0),
+        direction = -1
+    },
+    TopRight = {
+        anchor = Vector2.new(1, 0),
+        startPos = UDim2.new(1, 0, 0, 0),
+        direction = 1
+    },
+    TopLeft = {
+        anchor = Vector2.new(0, 0),
+        startPos = UDim2.new(0, 0, 0, 0),
+        direction = 1
+    },
+    BottomLeft = {
+        anchor = Vector2.new(0, 1),
+        startPos = UDim2.new(0, 0, 1, 0),
+        direction = -1
+    }
+}
 
-    local colors = notificationColors[notificationType] or notificationColors["Info"]
+-- UI initialization
+local function initializeUI()
+    if initialized then return end
+    
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NotificationLibrary"
+    screenGui.Parent = playerGui
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 999
+    screenGui.ResetOnSpawn = false
+    
+    initialized = true
+end
 
+-- Notification management
+local function createNotification(content, title, notifType, options)
+    initializeUI()
+    options = options or {}
+    
+    -- Merge options with config
+    local displayTime = options.DisplayTime or CONFIG.DisplayTime
+    local icon = options.Icon or CONFIG.Icons[notifType]
+    
+    -- Cleanup old notifications if exceeding max
+    while #notifications >= CONFIG.MaxNotifications do
+        local oldest = table.remove(notifications, 1)
+        if oldest and oldest.Close then oldest:Close() end
+    end
+
+    -- Create frame
     local frame = Instance.new("Frame")
     frame.Name = "Notification"
-    frame.Size = UDim2.new(1, 0, 0, 60)
-    frame.BackgroundColor3 = colors.bg
-    frame.BackgroundTransparency = 1
-    frame.LayoutOrder = priority
+    frame.Size = UDim2.new(0, CONFIG.NotificationWidth, 0, CONFIG.MinNotificationHeight)
+    frame.BackgroundColor3 = CONFIG.BackgroundColor
+    frame.BackgroundTransparency = CONFIG.BackgroundTransparency
+    frame.BorderSizePixel = 0
     frame.ClipsDescendants = true
-    frame.Parent = container
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Color = colors.bg
-    stroke.Transparency = 0.6
-    stroke.Parent = frame
-
+    frame.AutomaticSize = Enum.AutomaticSize.Y
+    frame.Parent = screenGui
+    
+    -- Position setup
+    local posInfo = positionConfig[CONFIG.Position]
+    frame.AnchorPoint = posInfo.anchor
+    frame.Position = posInfo.startPos + UDim2.new(0, CONFIG.Padding * 2, 0, posInfo.direction * CONFIG.Padding * 2)
+    
+    -- Styling
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 6)
+    uiCorner.Parent = frame
+    
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Color = CONFIG.StrokeColor
+    uiStroke.Thickness = CONFIG.StrokeThickness
+    uiStroke.Parent = frame
+    
+    local uiPadding = Instance.new("UIPadding")
+    uiPadding.Padding = UDim.new(0, CONFIG.InternalPadding)
+    uiPadding.Parent = frame
+    
+    -- Content container
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "Content"
+    contentFrame.Size = UDim2.new(1, 0, 0, 0)
+    contentFrame.AutomaticSize = Enum.AutomaticSize.Y
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = frame
+    
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, CONFIG.InternalPadding)
+    layout.Parent = contentFrame
+    
+    -- Icon
+    local iconFrame = Instance.new("ImageLabel")
+    iconFrame.Size = UDim2.fromOffset(CONFIG.IconSize, CONFIG.IconSize)
+    iconFrame.Image = icon
+    iconFrame.ScaleType = Enum.ScaleType.Fit
+    iconFrame.BackgroundTransparency = 1
+    iconFrame.Parent = contentFrame
+    
+    -- Text container
+    local textContainer = Instance.new("Frame")
+    textContainer.Size = UDim2.new(1, -CONFIG.IconSize - CONFIG.InternalPadding, 1, 0)
+    textContainer.AutomaticSize = Enum.AutomaticSize.Y
+    textContainer.BackgroundTransparency = 1
+    textContainer.Parent = contentFrame
+    
+    local textLayout = Instance.new("UIListLayout")
+    textLayout.Padding = UDim.new(0, 4)
+    textLayout.Parent = textContainer
+    
+    -- Title
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Text = title
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 14
-    titleLabel.TextColor3 = colors.text
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Position = UDim2.new(0, 8, 0, 5)
-    titleLabel.Size = UDim2.new(1, -16, 0.4, 0)
+    titleLabel.Text = title or notifType
+    titleLabel.Font = CONFIG.TitleFont
+    titleLabel.TextSize = CONFIG.TitleSize
+    titleLabel.TextColor3 = CONFIG.TextColor
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextTransparency = 1
-    titleLabel.Parent = frame
-
-    local descLabel = Instance.new("TextLabel")
-    descLabel.Text = description
-    descLabel.Font = Enum.Font.Gotham
-    descLabel.TextSize = 13
-    descLabel.TextColor3 = colors.text
-    descLabel.BackgroundTransparency = 1
-    descLabel.Position = UDim2.new(0, 8, 0.4, 2)
-    descLabel.Size = UDim2.new(1, -16, 0.6, -7)
-    descLabel.TextXAlignment = Enum.TextXAlignment.Left
-    descLabel.TextTransparency = 1
-    descLabel.TextWrapped = true
-    descLabel.TextScaled = false
-    descLabel.Parent = frame
-
-    -- Glow pulse effect
-    local glow = true
-    task.spawn(function()
-        while glow and stroke do
-            TweenService:Create(stroke, TweenInfo.new(0.8), {Transparency = 0.3}):Play()
-            task.wait(0.8)
-            TweenService:Create(stroke, TweenInfo.new(0.8), {Transparency = 0.6}):Play()
-            task.wait(0.8)
+    titleLabel.AutomaticSize = Enum.AutomaticSize.Y
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Size = UDim2.new(1, 0, 0, CONFIG.TitleSize)
+    titleLabel.Parent = textContainer
+    
+    -- Content
+    local contentLabel = Instance.new("TextLabel")
+    contentLabel.Text = content or ""
+    contentLabel.Font = CONFIG.ContentFont
+    contentLabel.TextSize = CONFIG.ContentSize
+    contentLabel.TextColor3 = CONFIG.TextColor
+    contentLabel.TextWrapped = true
+    contentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    contentLabel.AutomaticSize = Enum.AutomaticSize.Y
+    contentLabel.BackgroundTransparency = 1
+    contentLabel.Size = UDim2.new(1, 0, 0, CONFIG.ContentSize)
+    contentLabel.Parent = textContainer
+    
+    -- Animation setup
+    local entryOffset = posInfo.anchor.X == 1 and CONFIG.NotificationWidth or -CONFIG.NotificationWidth
+    local entryPos = frame.Position + UDim2.new(0, entryOffset, 0, 0)
+    frame.Position = entryPos
+    
+    local tweenInfo = TweenInfo.new(
+        CONFIG.EntryTime,
+        CONFIG.EntryEasingStyle,
+        CONFIG.EntryEasingDirection
+    )
+    
+    local tween = TweenService:Create(frame, tweenInfo, {
+        Position = posInfo.startPos + UDim2.new(0, CONFIG.Padding, 0, posInfo.direction * CONFIG.Padding)
+    })
+    tween:Play()
+    
+    -- Notification object
+    local notification = {
+        _frame = frame,
+        _tweens = { tween },
+        Closed = false
+    }
+    
+    function notification:Close()
+        if self.Closed then return end
+        self.Closed = true
+        
+        -- Cancel all tweens
+        for _, t in ipairs(self._tweens) do
+            t:Cancel()
         end
-    end)
-
-    -- Appear animation
-    frame.Position = UDim2.new(1.5, 0, 0, 0)
-    appearSound:Play()
-    TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 0}):Play()
-    TweenService:Create(titleLabel, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
-    TweenService:Create(descLabel, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
-
-    local function dismiss()
-        if not frame or not frame.Parent then return end
-        disappearSound:Play()
-        TweenService:Create(titleLabel, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-        TweenService:Create(descLabel, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-        TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Position = UDim2.new(1.5, 0, 0, 0), BackgroundTransparency = 1}):Play()
-            .Completed:Once(function()
-                glow = false
-                frame:Destroy()
-                activeCount -= 1
-                if #queue > 0 then
-                    local next = table.remove(queue, 1)
-                    NotificationModule:Notify(unpack(next))
-                end
-            end)
+        
+        -- Exit animation
+        local exitTween = TweenService:Create(frame, TweenInfo.new(
+            CONFIG.ExitTime,
+            CONFIG.ExitEasingStyle,
+            CONFIG.ExitEasingDirection
+        ), {
+            Position = entryPos,
+            BackgroundTransparency = 1
+        })
+        
+        -- Fade children
+        for _, child in ipairs(frame:GetDescendants()) do
+            if child:IsA("UIStroke") then
+                table.insert(self._tweens, TweenService:Create(child, TweenInfo.new(0.2), { Transparency = 1 })
+            elseif child:IsA("TextLabel") or child:IsA("ImageLabel") then
+                table.insert(self._tweens, TweenService:Create(child, TweenInfo.new(0.2), { TextTransparency = 1, ImageTransparency = 1 }))
+            end
+        end
+        
+        exitTween:Play()
+        exitTween.Completed:Wait()
+        
+        -- Cleanup
+        frame:Destroy()
+        for i, n in ipairs(notifications) do
+            if n == self then
+                table.remove(notifications, i)
+                break
+            end
+        end
     end
-
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if onClick then onClick() end
-            dismiss()
-        end
-    end)
-
-    task.delay(duration, dismiss)
+    
+    -- Auto-close timer
+    if displayTime > 0 then
+        task.delay(displayTime, function()
+            if not notification.Closed then
+                notification:Close()
+            end
+        end)
+    end
+    
+    table.insert(notifications, notification)
+    return notification
 end
 
-function NotificationModule:Notify(title, description, notificationType, duration, priority, onClick)
-    if activeCount >= maxVisible then
-        table.insert(queue, {title, description, notificationType, duration, priority, onClick})
-        return
-    end
-    activeCount += 1
-    createNotification(title, description, notificationType, duration, priority, onClick)
+-- Public API
+function library.Info(content, title, options)
+    return createNotification(content, title, "Info", options)
 end
 
-return NotificationModule
+function library.Warn(content, title, options)
+    return createNotification(content, title, "Warn", options)
+end
+
+function library.Error(content, title, options)
+    return createNotification(content, title, "Error", options)
+end
+
+function library.SetConfig(newConfig)
+    for k, v in pairs(newConfig) do
+        if CONFIG[k] ~= nil then
+            CONFIG[k] = v
+        end
+    end
+end
+
+return library
