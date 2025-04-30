@@ -78,6 +78,8 @@ function Skeleton:UpdateStructure()
     for i, connection in ipairs(connections) do
         if not self.Lines[i] then
             self.Lines[i] = createLine(self.Color, self.Alpha, self.Thickness)
+            self.Lines[i].StartPart = connection[1]  -- Store part names
+            self.Lines[i].EndPart = connection[2]
         end
     end
 
@@ -117,19 +119,10 @@ function Skeleton:Update()
     -- Update structure if needed
     self:UpdateStructure()
 
-    -- Get all parts first
-    local parts = {}
+    -- Update line positions
     for _, line in ipairs(self.Lines) do
         local startPart = character:FindFirstChild(line.StartPart)
         local endPart = character:FindFirstChild(line.EndPart)
-        parts[startPart] = true
-        parts[endPart] = true
-    end
-
-    -- Update line positions
-    for i, line in ipairs(self.Lines) do
-        local startPart = character:FindFirstChild(line.StartPart or "")
-        local endPart = character:FindFirstChild(line.EndPart or "")
 
         if startPart and endPart then
             local startPos, startVisible = WorldToViewportPoint(Camera, startPart.Position)
