@@ -120,8 +120,8 @@ function Skeleton:Update()
     -- Get all parts first
     local parts = {}
     for _, line in ipairs(self.Lines) do
-        local startPart = character:FindFirstChild(line.StartPart or "")
-        local endPart = character:FindFirstChild(line.EndPart or "")
+        local startPart = character:FindFirstChild(line.StartPart)
+        local endPart = character:FindFirstChild(line.EndPart)
         parts[startPart] = true
         parts[endPart] = true
     end
