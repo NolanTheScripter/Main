@@ -121,6 +121,12 @@ function Skeleton:Update()
 
     -- Update line positions
     for _, line in ipairs(self.Lines) do
+        -- Skip if line is missing properties
+        if not line or not line.StartPart or not line.EndPart then
+            line.Visible = false
+            continue
+        end
+
         local startPart = character:FindFirstChild(line.StartPart)
         local endPart = character:FindFirstChild(line.EndPart)
 
