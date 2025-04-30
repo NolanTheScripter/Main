@@ -1,185 +1,160 @@
+--// Aliases
 local taskWait = task.wait
 local tableInsert = table.insert
 local tableFind = table.find
 local tableRemove = table.remove
+
 local Vector2New = Vector2.new
 local mathRound = math.round
 
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 local WorldToViewportPoint = Camera.WorldToViewportPoint
-local LocalPlayer = game.Players.LocalPlayer
 
-local Library = {}
-Library.__index = Library
-
-local function createLine(color, transparency, thickness)
+--// Utility Functions
+local function createLine(color, alpha, thickness)
     local line = Drawing.new("Line")
+    line.Color = color
+    line.Transparency = alpha
+    line.Thickness = thickness
     line.Visible = false
-    line.Color = color or Color3.fromRGB(0, 255, 0)
-    line.Transparency = transparency or 1
-    line.Thickness = thickness or 1
     return line
 end
 
-local function smoothenPosition(position)
-    return Vector2New(mathRound(position.X), mathRound(position.Y))
+local function smoothenPosition(vec)
+    return Vector2New(mathRound(vec.X), mathRound(vec.Y))
 end
 
-local Skeleton = {
-    Removed = false,
-    Player = nil,
-    Visible = false,
-    Lines = {},
-    Color = Color3.fromRGB(0, 255, 0),
-    Alpha = 1,
-    Thickness = 1,
-    DoSubsteps = true,
-    _updateConnection = nil,
-    _characterTracker = nil,
-}
+--// Skeleton Class
+local Skeleton = {}
 Skeleton.__index = Skeleton
 
 function Skeleton:UpdateStructure()
-    if self.Removed or not self.Player.Character then return end
+    if not self.Player or not self.Player.Character then
+        self:RemoveLines()
+        return
+    end
 
-    self:RemoveLines()
     local character = self.Player.Character
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
 
-    local function processPart(part)
-        for _, link in ipairs(part:GetChildren()) do
-            if link:IsA("Motor6D") and link.Part0 and link.Part1 then
-                tableInsert(self.Lines, {
-                    createLine(self.Color, self.Alpha, self.Thickness),
-                    createLine(self.Color, self.Alpha, self.Thickness),
-                    part.Name,
-                    link.Name
-                })
-            end
+    -- Clear existing lines if character changed
+    if self.LastCharacter ~= character then
+        self:RemoveLines()
+        self.LastCharacter = character
+    end
+
+    -- Define bone connections (R15 and R6 compatible)
+    local connections = {
+        -- Torso connections
+        {"Head", "UpperTorso"},
+        {"UpperTorso", "LowerTorso"},
+        
+        -- Left arm
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        
+        -- Right arm
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        
+        -- Left leg
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        
+        -- Right leg
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    }
+
+    -- Create lines for each connection if they don't exist
+    for i, connection in ipairs(connections) do
+        if not self.Lines[i] then
+            self.Lines[i] = createLine(self.Color, self.Alpha, self.Thickness)
         end
     end
 
-    for _, part in ipairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            processPart(part)
-        end
-    end
-
-    if not self._characterTracker then
-        self._characterTracker = character.ChildAdded:Connect(function(child)
-            if child:IsA("BasePart") then
-                processPart(child)
-            end
-        end)
+    -- Remove extra lines if connections decreased
+    while #self.Lines > #connections do
+        tableRemove(self.Lines):Remove()
     end
 end
 
 function Skeleton:UpdateProperties()
-    for _, linePair in ipairs(self.Lines) do
-        linePair[1].Color = self.Color
-        linePair[1].Transparency = self.Alpha
-        linePair[1].Thickness = self.Thickness
-        linePair[2].Color = self.Color
-        linePair[2].Transparency = self.Alpha
-        linePair[2].Thickness = self.Thickness
+    for _, line in ipairs(self.Lines) do
+        line.Color = self.Color
+        line.Transparency = self.Alpha
+        line.Thickness = self.Thickness
     end
 end
 
 function Skeleton:Update()
-    if self.Removed then return end
+    if self.Removed or not self.Visible then
+        self:SetVisible(false)
+        return
+    end
+
+    -- Check if player is valid
+    if not self.Player or not self.Player.Character then
+        self:SetVisible(false)
+        return
+    end
 
     local character = self.Player.Character
-    if not character then
-        self.Visible = false
-        if not self.Player.Parent then
-            self:Remove()
-        end
-        return
-    end
-
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not humanoid or humanoid.Health <= 0 then
-        self.Visible = false
+        self:SetVisible(false)
         return
     end
 
-    local needsStructureUpdate = false
-    for _, linePair in ipairs(self.Lines) do
-        local part = character:FindFirstChild(linePair[3])
-        local link = part and part:FindFirstChild(linePair[4])
+    -- Update structure if needed
+    self:UpdateStructure()
 
-        if not (part and link and link.Part0 and link.Part1) then
-            linePair[1].Visible = false
-            linePair[2].Visible = false
-            needsStructureUpdate = true
-            goto continue
-        end
-
-        local part0, part1 = link.Part0, link.Part1
-        local successCount = 0
-
-        if self.DoSubsteps then
-            local c0Pos = (part0.CFrame * link.C0).Position
-            local part0Pos, part0Vis = WorldToViewportPoint(Camera, part0.Position)
-            local c0ScreenPos, c0Vis = WorldToViewportPoint(Camera, c0Pos)
-
-            if part0Vis and c0Vis then
-                linePair[1].From = smoothenPosition(Vector2New(part0Pos.X, part0Pos.Y))
-                linePair[1].To = smoothenPosition(Vector2New(c0ScreenPos.X, c0ScreenPos.Y))
-                linePair[1].Visible = self.Visible
-                successCount += 1
-            else
-                linePair[1].Visible = false
-            end
-
-            local c1Pos = (part1.CFrame * link.C1).Position
-            local part1Pos, part1Vis = WorldToViewportPoint(Camera, part1.Position)
-            local c1ScreenPos, c1Vis = WorldToViewportPoint(Camera, c1Pos)
-
-            if part1Vis and c1Vis then
-                linePair[2].From = smoothenPosition(Vector2New(part1Pos.X, part1Pos.Y))
-                linePair[2].To = smoothenPosition(Vector2New(c1ScreenPos.X, c1ScreenPos.Y))
-                linePair[2].Visible = self.Visible
-                successCount += 1
-            else
-                linePair[2].Visible = false
-            end
-        else
-            local part0Pos, part0Vis = WorldToViewportPoint(Camera, part0.Position)
-            local part1Pos, part1Vis = WorldToViewportPoint(Camera, part1.Position)
-
-            if part0Vis and part1Vis then
-                linePair[1].From = smoothenPosition(Vector2New(part0Pos.X, part0Pos.Y))
-                linePair[1].To = smoothenPosition(Vector2New(part1Pos.X, part1Pos.Y))
-                linePair[1].Visible = self.Visible
-                successCount += 1
-            else
-                linePair[1].Visible = false
-            end
-            linePair[2].Visible = false
-        end
-
-        ::continue::
+    -- Get all parts first
+    local parts = {}
+    for _, line in ipairs(self.Lines) do
+        local startPart = character:FindFirstChild(line.StartPart or "")
+        local endPart = character:FindFirstChild(line.EndPart or "")
+        parts[startPart] = true
+        parts[endPart] = true
     end
 
-    if needsStructureUpdate or #self.Lines == 0 then
-        self:UpdateStructure()
+    -- Update line positions
+    for i, line in ipairs(self.Lines) do
+        local startPart = character:FindFirstChild(line.StartPart or "")
+        local endPart = character:FindFirstChild(line.EndPart or "")
+
+        if startPart and endPart then
+            local startPos, startVisible = WorldToViewportPoint(Camera, startPart.Position)
+            local endPos, endVisible = WorldToViewportPoint(Camera, endPart.Position)
+
+            if startVisible and endVisible then
+                line.From = smoothenPosition(startPos)
+                line.To = smoothenPosition(endPos)
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
     end
 end
 
 function Skeleton:Toggle(state)
-    state = state == nil and not self.Visible or state
-    if self.Visible == state then return end
-
-    self.Visible = state
     if state then
-        self:UpdateStructure()
-        if self._updateConnection then
-            self._updateConnection:Disconnect()
+        if not self._updateConnection then
+            self._updateConnection = RunService.Heartbeat:Connect(function()
+                self:Update()
+            end)
         end
-        self._updateConnection = RunService.Heartbeat:Connect(function()
-            self:Update()
-        end)
     else
         if self._updateConnection then
             self._updateConnection:Disconnect()
@@ -190,46 +165,72 @@ function Skeleton:Toggle(state)
 end
 
 function Skeleton:SetVisible(state)
-    for _, linePair in ipairs(self.Lines) do
-        linePair[1].Visible = state
-        linePair[2].Visible = state
+    for _, line in ipairs(self.Lines) do
+        line.Visible = state and self.Visible
     end
 end
 
 function Skeleton:RemoveLines()
-    for _, linePair in ipairs(self.Lines) do
-        linePair[1]:Remove()
-        linePair[2]:Remove()
+    for _, line in ipairs(self.Lines) do
+        line:Remove()
     end
     self.Lines = {}
 end
 
 function Skeleton:Remove()
-    if self.Removed then return end
     self.Removed = true
-    self:Toggle(false)
-    self:RemoveLines()
-    if self._characterTracker then
-        self._characterTracker:Disconnect()
+    if self._updateConnection then
+        self._updateConnection:Disconnect()
     end
+    self:RemoveLines()
 end
 
-function Library:NewSkeleton(player, doSubsteps, color, alpha, thickness)
-    assert(typeof(player) == "Instance" and player:IsA("Player"), "Invalid player argument")
+--// Constructor
+function Skeleton.new(player)
+    local self = setmetatable({}, Skeleton)
 
-    local skeleton = setmetatable({}, Skeleton)
-    skeleton.Player = player
-    skeleton.DoSubsteps = doSubsteps or false
-    skeleton.Color = color or Color3.fromRGB(0, 255, 0)
-    skeleton.Alpha = alpha or 1
-    skeleton.Thickness = thickness or 1
+    self.Player = player
+    self.Removed = false
+    self.Visible = true
+    self.Lines = {}
 
+    self.Color = Color3.new(1, 1, 1)
+    self.Alpha = 1
+    self.Thickness = 1
+    self.DoSubsteps = false
+
+    self._updateConnection = nil
+    self._characterTracker = nil
+
+    return self
+end
+
+--// Library Table
+local Library = {}
+
+function Library:NewSkeleton(player)
+    local skel = Skeleton.new(player)
+
+    -- Set team color if available
+    if player.Team then
+        skel.Color = player.TeamColor.Color
+    end
+
+    -- Bind team color change
     player:GetPropertyChangedSignal("TeamColor"):Connect(function()
-        skeleton.Color = player.TeamColor.Color
-        skeleton:UpdateProperties()
+        skel.Color = player.TeamColor.Color
+        skel:UpdateProperties()
     end)
 
-    return skeleton
+    -- Auto-remove when player leaves
+    player.CharacterRemoving:Connect(function()
+        skel:Remove()
+    end)
+
+    -- Start updating
+    skel:Toggle(true)
+
+    return skel
 end
 
 return Library
