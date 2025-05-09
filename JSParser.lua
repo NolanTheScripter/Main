@@ -423,4 +423,5 @@ function JSParser.convertJSToLua(jsCode)
     
     return luaCode
 end
+
 return JSParser
