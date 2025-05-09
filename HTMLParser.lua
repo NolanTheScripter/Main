@@ -482,4 +482,111 @@ function HTMLParser.generateLua(node, parentVar, options, indent)
             luaCode = luaCode .. indent .. varName .. ".Image = \"" .. element.attributes.src .. "\"\n"
         end
         
-        -- Create child elements for com
+        -- Create child elements for complex components
+        if type(elementInfo) == "table" and elementInfo.children then
+            for _, childDef in ipairs(elementInfo.children) do
+                local childVar = varName .. "_" .. childDef.instance
+                luaCode = luaCode .. indent .. "local " .. childVar .. " = Instance.new(\"" .. childDef.instance .. "\")\n"
+                
+                if childDef.property and childDef.value then
+                    luaCode = luaCode .. indent .. childVar .. "." .. childDef.property .. " = " .. HTMLParser.valueToLua(childDef.value) .. "\n"
+                end
+                
+                if childDef.position then
+                    luaCode = luaCode .. indent .. childVar .. ".Position = " .. HTMLParser.valueToLua(childDef.position) .. "\n"
+                end
+                
+                luaCode = luaCode .. indent .. childVar .. ".Parent = " .. varName .. "\n"
+            end
+        end
+        
+        -- Set parent
+        luaCode = luaCode .. indent .. varName .. ".Parent = " .. parentVar .. "\n\n"
+        
+        return varName
+    end
+    
+    local function processElement(element, currentParentVar, currentIndent)
+        if not elementMap[element.nodeName] and element.nodeName ~= "#text" then
+            if comments then
+                luaCode = luaCode .. currentIndent .. "-- Unsupported element: " .. element.nodeName .. "\n"
+            end
+            return
+        end
+        
+        if element.nodeName == "#text" then
+            -- Handle text nodes (only if parent is a text element)
+            local parentType = elementMap[element.parent.nodeName]
+            if parentType and (parentType.instance == "TextLabel" or parentType.instance == "TextButton" or parentType == "TextLabel" or parentType == "TextButton") then
+                luaCode = luaCode .. currentIndent .. currentParentVar .. ".Text = [=[" .. element.textContent .. "]=]\n"
+            end
+            return
+        end
+        
+        local varName = element.attributes and (element.attributes.id or element.attributes.name) or 
+                       element.nodeName:gsub("[^%w]", "_") .. tostring(math.random(1000, 9999))
+        varName = varName:gsub("[^%w_]", "_")
+        
+        if comments then
+            luaCode = luaCode .. currentIndent .. "-- " .. element.nodeName .. " element\n"
+            if element.attributes and element.attributes.class then
+                luaCode = luaCode .. currentIndent .. "-- Classes: " .. element.attributes.class .. "\n"
+            end
+        end
+        
+        local newParentVar = createInstance(element, varName)
+        
+        -- Process children
+        if #element.children > 0 then
+            if comments then
+                luaCode = luaCode .. currentIndent .. "-- Children of " .. element.nodeName .. "\n"
+            end
+            
+            local childIndent = currentIndent .. "    "
+            for _, child in ipairs(element.children) do
+                processElement(child, newParentVar, childIndent)
+            end
+        end
+    end
+    
+    -- Process the root node's children
+    for _, child in ipairs(node.children) do
+        processElement(child, parentVar, indent)
+    end
+    
+    return luaCode
+end
+
+function HTMLParser.valueToLua(value)
+    if type(value) == "string" then
+        return "\"" .. value .. "\""
+    elseif type(value) == "table" then
+        if value.ClassName then
+            -- Special instance like UICorner
+            local props = {}
+            for k, v in pairs(value) do
+                if k ~= "ClassName" then
+                    table.insert(props, k .. " = " .. HTMLParser.valueToLua(v))
+                end
+            end
+            return "{ClassName = \"" .. value.ClassName .. "\", " .. table.concat(props, ", ") .. "}"
+        elseif value.X and value.Y then -- UDim2
+            return "UDim2.new(" .. value.X.Scale .. ", " .. value.X.Offset .. ", " .. value.Y.Scale .. ", " .. value.Y.Offset .. ")"
+        elseif value.Offset and value.Scale then -- UDim
+            return "UDim.new(" .. value.Scale .. ", " .. value.Offset .. ")"
+        elseif value.r and value.g and value.b then -- Color3
+            return "Color3.fromRGB(" .. math.floor(value.r * 255) .. ", " .. math.floor(value.g * 255) .. ", " .. math.floor(value.b * 255) .. ")"
+        else
+            -- Generic table
+            local items = {}
+            for k, v in pairs(value) do
+                table.insert(items, "[" .. HTMLParser.valueToLua(k) .. "] = " .. HTMLParser.valueToLua(v))
+            end
+            return "{" .. table.concat(items, ", ") .. "}"
+        end
+    else
+        return tostring(value)
+    end
+end
+
+return HTMLParser
