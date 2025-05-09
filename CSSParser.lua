@@ -553,4 +553,100 @@ function CSSParser.parseColor(colorStr)
             lightgray = Color3.fromRGB(211, 211, 211),
             lightgreen = Color3.fromRGB(144, 238, 144),
             lightgrey = Color3.fromRGB(211, 211, 211),
-            light
+            lightpink = Color3.fromRGB(255, 182, 193),
+            lightsalmon = Color3.fromRGB(255, 160, 122),
+            lightseagreen = Color3.fromRGB(32, 178, 170),
+            lightskyblue = Color3.fromRGB(135, 206, 250),
+            lightslategray = Color3.fromRGB(119, 136, 153),
+            lightslategrey = Color3.fromRGB(119, 136, 153),
+            lightsteelblue = Color3.fromRGB(176, 196, 222),
+            lightyellow = Color3.fromRGB(255, 255, 224),
+            lime = Color3.fromRGB(0, 255, 0),
+            limegreen = Color3.fromRGB(50, 205, 50),
+            linen = Color3.fromRGB(250, 240, 230),
+            magenta = Color3.fromRGB(255, 0, 255),
+            maroon = Color3.fromRGB(128, 0, 0),
+            mediumaquamarine = Color3.fromRGB(102, 205, 170),
+            mediumblue = Color3.fromRGB(0, 0, 205),
+            mediumorchid = Color3.fromRGB(186, 85, 211),
+            mediumpurple = Color3.fromRGB(147, 112, 219),
+            mediumseagreen = Color3.fromRGB(60, 179, 113),
+            mediumslateblue = Color3.fromRGB(123, 104, 238),
+            mediumspringgreen = Color3.fromRGB(0, 250, 154),
+            mediumturquoise = Color3.fromRGB(72, 209, 204),
+            mediumvioletred = Color3.fromRGB(199, 21, 133),
+            midnightblue = Color3.fromRGB(25, 25, 112),
+            mintcream = Color3.fromRGB(245, 255, 250),
+            mistyrose = Color3.fromRGB(255, 228, 225),
+            moccasin = Color3.fromRGB(255, 228, 181),
+            navajowhite = Color3.fromRGB(255, 222, 173),
+            navy = Color3.fromRGB(0, 0, 128),
+            oldlace = Color3.fromRGB(253, 245, 230),
+            olive = Color3.fromRGB(128, 128, 0),
+            olivedrab = Color3.fromRGB(107, 142, 35),
+            orange = Color3.fromRGB(255, 165, 0),
+            orangered = Color3.fromRGB(255, 69, 0),
+            orchid = Color3.fromRGB(218, 112, 214),
+            palegoldenrod = Color3.fromRGB(238, 232, 170),
+            palegreen = Color3.fromRGB(152, 251, 152),
+            paleturquoise = Color3.fromRGB(175, 238, 238),
+            palevioletred = Color3.fromRGB(219, 112, 147),
+            papayawhip = Color3.fromRGB(255, 239, 213),
+            peachpuff = Color3.fromRGB(255, 218, 185),
+            peru = Color3.fromRGB(205, 133, 63),
+            pink = Color3.fromRGB(255, 192, 203),
+            plum = Color3.fromRGB(221, 160, 221),
+            powderblue = Color3.fromRGB(176, 224, 230),
+            purple = Color3.fromRGB(128, 0, 128),
+            rebeccapurple = Color3.fromRGB(102, 51, 153),
+            red = Color3.fromRGB(255, 0, 0),
+            rosybrown = Color3.fromRGB(188, 143, 143),
+            royalblue = Color3.fromRGB(65, 105, 225),
+            saddlebrown = Color3.fromRGB(139, 69, 19),
+            salmon = Color3.fromRGB(250, 128, 114),
+            sandybrown = Color3.fromRGB(244, 164, 96),
+            seagreen = Color3.fromRGB(46, 139, 87),
+            seashell = Color3.fromRGB(255, 245, 238),
+            sienna = Color3.fromRGB(160, 82, 45),
+            silver = Color3.fromRGB(192, 192, 192),
+            skyblue = Color3.fromRGB(135, 206, 235),
+            slateblue = Color3.fromRGB(106, 90, 205),
+            slategray = Color3.fromRGB(112, 128, 144),
+            slategrey = Color3.fromRGB(112, 128, 144),
+            snow = Color3.fromRGB(255, 250, 250),
+            springgreen = Color3.fromRGB(0, 255, 127),
+            steelblue = Color3.fromRGB(70, 130, 180),
+            tan = Color3.fromRGB(210, 180, 140),
+            teal = Color3.fromRGB(0, 128, 128),
+            thistle = Color3.fromRGB(216, 191, 216),
+            tomato = Color3.fromRGB(255, 99, 71),
+            turquoise = Color3.fromRGB(64, 224, 208),
+            violet = Color3.fromRGB(238, 130, 238),
+            wheat = Color3.fromRGB(245, 222, 179),
+            white = Color3.fromRGB(255, 255, 255),
+            whitesmoke = Color3.fromRGB(245, 245, 245),
+            yellow = Color3.fromRGB(255, 255, 0),
+            yellowgreen = Color3.fromRGB(154, 205, 50)
+        }
+        
+        return colorNames[colorStr:lower()] or Color3.fromRGB(0, 0, 0)
+    end
+end
+
+function CSSParser.cssToRobloxProperties(cssProps, elementType)
+    local robloxProps = {}
+    
+    for cssProp, value in pairs(cssProps) do
+        local mapper = propertyMap[cssProp]
+        if mapper then
+            local newProps = mapper(value, {nodeName = elementType, computedStyle = cssProps})
+            for k, v in pairs(newProps) do
+                robloxProps[k] = v
+            end
+        end
+    end
+    
+    return robloxProps
+end
+
+return CSSParser
