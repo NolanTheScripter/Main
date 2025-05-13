@@ -1,137 +1,115 @@
 local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
--- Configuration
-local MAX_RETRIES = 3
-local DELAY_BETWEEN_REQUESTS = 1
-local RESULTS_PER_PAGE = 100
+-- Cache system to prevent duplicate requests
+local cache = {
+    universeIds = {},
+    productInfo = {}
+}
 
--- Enhanced secure request function with retries and delays
-local function secureRequest(url)
-    local retries = 0
-    local lastError = ""
-    
-    while retries < MAX_RETRIES do
-        local success, result = pcall(function()
-            if retries > 0 then
-                task.wait(DELAY_BETWEEN_REQUESTS * retries)
-            end
-            return HttpService:GetAsync(url, true)
-        end)
-        
-        if success then
-            return result
-        else
-            lastError = result
-            retries = retries + 1
-            warn(string.format("Request failed (attempt %d/%d): %s", retries, MAX_RETRIES, result))
-        end
-    end
-    
-    error(string.format("Failed after %d attempts. Last error: %s", MAX_RETRIES, lastError))
+-- Secure API request with error handling
+local function apiRequest(url)
+    local success, response = pcall(function()
+        return HttpService:GetAsync(url, true)
+    end)
+    return success and response or nil
 end
 
--- Get universe ID with better caching
-local universeIdCache = {}
+-- Get Universe ID from Place ID
 local function getUniverseId(placeId)
-    placeId = placeId or game.PlaceId
+    if cache.universeIds[placeId] then
+        return cache.universeIds[placeId]
+    end
+
+    local url = string.format("https://apis.roblox.com/universes/v1/places/%d/universe", placeId)
+    local response = apiRequest(url)
     
-    if universeIdCache[placeId] then
-        return universeIdCache[placeId]
+    if response then
+        local data = HttpService:JSONDecode(response)
+        cache.universeIds[placeId] = data.universeId
+        return data.universeId
     end
     
-    local url = string.format("https://apis.roblox.com/universes/v1/places/%d/universe", placeId)
-    local result = secureRequest(url)
-    local data = HttpService:JSONDecode(result)
-    
-    universeIdCache[placeId] = data.universeId
-    return data.universeId
+    return nil
 end
 
--- Fetch all gamepasses with pagination
-local function fetchAllGamepasses(universeId)
-    local gamepasses = {}
-    local cursor = ""
-    local hasMore = true
-    local page = 1
+-- Enhanced product info fetcher
+local function getProductInfo(assetId, assetType)
+    assetType = assetType or Enum.InfoType.GamePass
+    local cacheKey = assetType.Name..assetId
     
-    while hasMore do
-        local url = string.format(
-            "https://games.roblox.com/v1/games/%d/game-passes?limit=%d&sortOrder=Asc",
-            universeId,
-            RESULTS_PER_PAGE
-        )
-        
-        if cursor ~= "" then
-            url = url .. "&cursor=" .. cursor
-        end
-        
-        local result = secureRequest(url)
-        local data = HttpService:JSONDecode(result)
-        
-        for _, gamepass in ipairs(data.data) do
-            table.insert(gamepasses, {
+    if cache.productInfo[cacheKey] then
+        return cache.productInfo[cacheKey]
+    end
+
+    local success, result = pcall(function()
+        return MarketplaceService:GetProductInfo(assetId, assetType)
+    end)
+
+    if success then
+        cache.productInfo[cacheKey] = result
+        return result
+    end
+    
+    return nil
+end
+
+-- Get all gamepasses for a universe
+local function getGamepasses(universeId)
+    local url = string.format("https://games.roblox.com/v1/games/%d/game-passes?limit=100", universeId)
+    local response = apiRequest(url)
+    
+    if not response then return {} end
+    
+    local data = HttpService:JSONDecode(response)
+    local results = {}
+    
+    for _, gamepass in ipairs(data.data) do
+        local info = getProductInfo(gamepass.id)
+        if info then
+            table.insert(results, {
                 id = gamepass.id,
                 name = gamepass.name,
-                price = gamepass.price or 0,
-                displayName = gamepass.displayName or gamepass.name
+                price = info.PriceInRobux or 0,
+                sales = info.Sales or 0,
+                creator = info.Creator and info.Creator.Name or "Unknown"
             })
-        end
-        
-        hasMore = data.nextPageCursor ~= nil
-        cursor = data.nextPageCursor or ""
-        page = page + 1
-        
-        if hasMore then
-            task.wait(DELAY_BETWEEN_REQUESTS)
         end
     end
     
-    return gamepasses
+    return results
 end
 
--- Main function with protection against duplicate runs
-local executionLock = false
-local function printAllGamepasses(placeId)
-    if executionLock then
-        warn("Script is already running. Please wait.")
+-- Main function to print all gamepasses
+local function printGamepasses(placeId)
+    placeId = placeId or game.PlaceId
+    local universeId = getUniverseId(placeId)
+    
+    if not universeId then
+        warn("Failed to get universe ID for place", placeId)
         return
     end
     
-    executionLock = true
+    local gamepasses = getGamepasses(universeId)
     
-    local success, err = pcall(function()
-        local universeId = getUniverseId(placeId)
-        if not universeId then
-            error("Could not determine universe ID")
-        end
-        
-        print("\nFetching gamepasses... (This may take a moment)")
-        local gamepasses = fetchAllGamepasses(universeId)
-        
-        if #gamepasses == 0 then
-            print("No gamepasses found for this game")
-            return
-        end
-        
-        print(string.format("\nFound %d gamepasses:", #gamepasses))
-        for _, gamepass in ipairs(gamepasses) do
-            print(string.format("Gamepass: %-30s | ID: %-10d | Price: %d R$", 
-                gamepass.displayName, 
-                gamepass.id, 
-                gamepass.price
-            ))
-        end
-    end)
-    
-    if not success then
-        warn("Error:", err)
+    if #gamepasses == 0 then
+        print("No gamepasses found for this game")
+        return
     end
     
-    executionLock = false
+    print(string.format("\nGamepasses for place %d (universe %d):", placeId, universeId))
+    for _, gp in ipairs(gamepasses) do
+        print(string.format(
+            "%s (ID: %d) - %d R$ | Sales: %d | By: %s",
+            gp.name, gp.id, gp.price, gp.sales, gp.creator
+        ))
+    end
 end
 
--- Export the function but don't auto-run
+-- Export functions without auto-executing
 return {
-    GetGamepasses = printAllGamepasses
+    GetUniverseId = getUniverseId,
+    GetProductInfo = getProductInfo,
+    GetGamepasses = getGamepasses,
+    PrintGamepasses = printGamepasses
 }
