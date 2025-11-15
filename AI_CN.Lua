@@ -150,4 +150,4 @@ function NotificationModule:Notify(args)
     end
 end
 
-return NotificationModul
+return NotificationModule
