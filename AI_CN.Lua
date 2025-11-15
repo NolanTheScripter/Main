@@ -1,5 +1,5 @@
 -- NotificationModule.lua
--- Place in ReplicatedStorage or StarterPlayerScripts
+-- Place this script in ReplicatedStorage or StarterPlayerScripts
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -10,42 +10,38 @@ local NotificationModule = {}
 NotificationModule.Queue = {}
 NotificationModule.ActiveNotification = nil
 
--- Default settings
+-- Settings for notifications
 NotificationModule.Settings = {
-    WidthScale = 0.3,      -- 30% of screen width
-    AspectRatio = 4,       -- Width : Height ratio
-    AnimationTime = 0.4,
-    Padding = UDim.new(0,10),
-    DefaultDuration = 3,
+    WidthScale = 0.3,                -- Width is 30% of screen
+    AspectRatio = 4,                 -- Aspect ratio width:height
+    AnimationTime = 0.4,             -- Seconds for in/out animation
+    Padding = UDim.new(0, 10),       -- Padding (unused but reserved)
+    DefaultDuration = 3,             -- Notification display time (seconds)
     BackgroundColor = Color3.fromRGB(50, 50, 50),
     TextColor = Color3.fromRGB(255, 255, 255)
 }
 
--- Internal function: create a notification frame
+-- Creates a notification UI frame
 function NotificationModule:CreateNotificationFrame(text, duration, color)
     duration = duration or self.Settings.DefaultDuration
     color = color or self.Settings.BackgroundColor
 
-    -- Create ScreenGui
     local screenGui = Instance.new("ScreenGui")
     screenGui.ResetOnSpawn = false
 
-    -- Notification container
     local frame = Instance.new("Frame")
     frame.AnchorPoint = Vector2.new(0.5, 0)
-    frame.Position = UDim2.new(0.5, 0, -0.2, 0) -- start above screen
+    frame.Position = UDim2.new(0.5, 0, -0.2, 0)
     frame.Size = UDim2.new(self.Settings.WidthScale, 0, 0, 100)
     frame.BackgroundColor3 = color
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
 
-    -- UIAspectRatioConstraint for scaling
     local aspect = Instance.new("UIAspectRatioConstraint")
     aspect.AspectRatio = self.Settings.AspectRatio
     aspect.DominantAxis = Enum.DominantAxis.Width
     aspect.Parent = frame
 
-    -- TextLabel
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, -20, 1, -20)
     textLabel.Position = UDim2.new(0, 10, 0, 10)
@@ -57,7 +53,6 @@ function NotificationModule:CreateNotificationFrame(text, duration, color)
     textLabel.Font = Enum.Font.SourceSansBold
     textLabel.Parent = frame
 
-    -- Function to play animation
     local notifObj = {}
     function notifObj:Play()
         screenGui.Parent = PlayerGui
@@ -68,7 +63,7 @@ function NotificationModule:CreateNotificationFrame(text, duration, color)
         })
         tweenIn:Play()
 
-        -- Tween out after duration
+        -- Tween out after duration expires
         delay(duration, function()
             local tweenOut = TweenService:Create(frame, TweenInfo.new(self.Settings.AnimationTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 Position = UDim2.new(0.5, 0, -0.2, 0),
@@ -86,14 +81,14 @@ function NotificationModule:CreateNotificationFrame(text, duration, color)
     return notifObj
 end
 
--- Internal: show next notification in queue
+-- Shows the next notification in queue
 function NotificationModule:ShowNext()
     if #self.Queue == 0 then return end
     self.ActiveNotification = table.remove(self.Queue, 1)
     self.ActiveNotification:Play()
 end
 
--- Public API: send notification
+-- Main public function to send a notification
 function NotificationModule:SendNotification(text, duration, color)
     local notif = self:CreateNotificationFrame(text, duration, color)
     table.insert(self.Queue, notif)
