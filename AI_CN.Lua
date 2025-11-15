@@ -1,489 +1,507 @@
-local NotificationService = {}
-NotificationService.__index = NotificationService
+-- NotificationModule.lua
+-- Cross-platform notification system with UIAspectRatioConstraint support
 
--- Module dependencies
-local Players = game:GetService("Players")
+local NotificationModule = {}
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
-function NotificationService.new(config)
-    local self = setmetatable({}, NotificationService)
-    
-    self.config = {
-        duration = config.duration or 5,
-        position = config.position or "TopRight",
-        animationStyle = config.animationStyle or "Slide",
-        maxNotifications = config.maxNotifications or 5,
-        mobileOptimized = config.mobileOptimized or true
+-- Configuration
+NotificationModule.Config = {
+    DefaultDuration = 5,
+    MaxNotifications = 3,
+    Spacing = 10,
+    AnimationDuration = 0.3
+}
+
+-- Internal state
+NotificationModule.Queue = {}
+NotificationModule.ActiveNotifications = {}
+NotificationModule.NotificationPool = {}
+NotificationModule.ScreenGui = nil
+
+-- Theme configuration
+NotificationModule.Themes = {
+    Success = {
+        BackgroundColor = Color3.fromRGB(76, 175, 80),
+        TextColor = Color3.fromRGB(255, 255, 255),
+        Icon = "✅"
+    },
+    Error = {
+        BackgroundColor = Color3.fromRGB(244, 67, 54),
+        TextColor = Color3.fromRGB(255, 255, 255),
+        Icon = "❌"
+    },
+    Warning = {
+        BackgroundColor = Color3.fromRGB(255, 193, 7),
+        TextColor = Color3.fromRGB(0, 0, 0),
+        Icon = "⚠️"
+    },
+    Info = {
+        BackgroundColor = Color3.fromRGB(33, 150, 243),
+        TextColor = Color3.fromRGB(255, 255, 255),
+        Icon = "ℹ️"
     }
-    
-    self.notifications = {}
-    self.notificationQueue = {}
-    self.activeNotifications = 0
-    self.screenGui = nil
-    self.isMobile = RunService:IsMobilePlatform()
-    
-    self:_setupScreenGui()
-    self:_createTemplates()
-    
-    return self
+}
+
+-- Platform detection
+function NotificationModule:IsMobile()
+    return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 end
 
-function NotificationService:_setupScreenGui()
-    -- Create ScreenGui with proper scaling
-    self.screenGui = Instance.new("ScreenGui")
-    self.screenGui.Name = "NotificationSystem"
-    self.screenGui.ResetOnSpawn = false
-    self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
-    -- Add UIAspectRatioConstraint for consistent scaling
-    local aspectRatio = Instance.new("UIAspectRatioConstraint")
-    aspectRatio.AspectRatio = 1.777 -- 16:9 standard ratio
-    aspectRatio.DominantAxis = Enum.DominantAxis.Width -- Scale based on width
-    aspectRatio.Parent = self.screenGui
-    
-    self.screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+function NotificationModule:IsPC()
+    return UserInputService.MouseEnabled
 end
 
-function NotificationService:_createTemplates()
-    -- Base notification template with responsive design
-    self.template = Instance.new("Frame")
-    self.template.Name = "NotificationTemplate"
-    self.template.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    self.template.BorderSizePixel = 0
-    self.template.ClipsDescendants = true
-    self.template.Visible = false -- Hide template
+-- Initialize the module
+function NotificationModule:Initialize()
+    self:CreateScreenGui()
+    self:SetupContainers()
+end
+
+-- Create main ScreenGui
+function NotificationModule:CreateScreenGui()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NotificationSystem"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 100
+    screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     
-    -- Responsive sizing using UIScale and constraints
-    local uiScale = Instance.new("UIScale")
-    uiScale.Parent = self.template
+    self.ScreenGui = screenGui
+end
+
+-- Setup notification containers
+function NotificationModule:SetupContainers()
+    -- Top container for notifications
+    local topContainer = Instance.new("Frame")
+    topContainer.Name = "TopNotifications"
+    topContainer.BackgroundTransparency = 1
+    topContainer.Size = UDim2.new(1, 0, 0.3, 0)
+    topContainer.Position = UDim2.new(0, 0, 0, 10)
+    topContainer.Parent = self.ScreenGui
     
-    -- Size constraint for different devices
-    local sizeConstraint = Instance.new("UISizeConstraint")
-    sizeConstraint.MaxSize = Vector2.new(400, 200)
-    sizeConstraint.MinSize = Vector2.new(250, 80)
-    sizeConstraint.Parent = self.template
+    -- Aspect ratio constraint for container
+    local containerAspect = Instance.new("UIAspectRatioConstraint")
+    containerAspect.AspectRatio = 4.0
+    containerAspect.AspectType = Enum.AspectType.ScaleWithParentSize
+    containerAspect.Parent = topContainer
+    
+    -- UIListLayout for stacking notifications
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = UDim.new(0, self.Config.Spacing)
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Parent = topContainer
+end
+
+-- Create notification template
+function NotificationModule:CreateNotificationTemplate()
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Name = "Notification"
+    notificationFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    notificationFrame.BackgroundTransparency = 0.1
+    notificationFrame.BorderSizePixel = 0
+    notificationFrame.ClipsDescendants = true
+    notificationFrame.Visible = false
     
     -- Corner rounding
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = self.template
+    corner.Parent = notificationFrame
     
-    -- Stroke for better visibility
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(100, 100, 100)
-    stroke.Thickness = 1
-    stroke.Parent = self.template
+    -- Shadow effect
+    local shadow = Instance.new("UIStroke")
+    shadow.Color = Color3.fromRGB(0, 0, 0)
+    shadow.Transparency = 0.7
+    shadow.Thickness = 2
+    shadow.Parent = notificationFrame
+    
+    -- Main aspect ratio constraint
+    local aspectRatio = Instance.new("UIAspectRatioConstraint")
+    aspectRatio.AspectRatio = self:IsMobile() and 2.2 or 4.375
+    aspectRatio.DominantAxis = Enum.DominantAxis.Width
+    aspectRatio.AspectType = Enum.AspectType.ScaleWithParentSize
+    aspectRatio.Parent = notificationFrame
+    
+    -- Icon label
+    local iconLabel = Instance.new("TextLabel")
+    iconLabel.Name = "Icon"
+    iconLabel.Size = UDim2.new(0, 30, 0, 30)
+    iconLabel.Position = UDim2.new(0, 10, 0.5, -15)
+    iconLabel.BackgroundTransparency = 1
+    iconLabel.Text = ""
+    iconLabel.TextSize = 20
+    iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    iconLabel.Font = Enum.Font.GothamBold
+    iconLabel.Parent = notificationFrame
+    
+    -- Icon aspect ratio
+    local iconAspect = Instance.new("UIAspectRatioConstraint")
+    iconAspect.AspectRatio = 1.0
+    iconAspect.Parent = iconLabel
     
     -- Title label
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(0.7, -50, 0, 25)
+    titleLabel.Position = UDim2.new(0, 50, 0, 10)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Position = UDim2.new(0, 15, 0, 10)
-    titleLabel.Size = UDim2.new(1, -30, 0, 20)
-    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = "Notification"
     titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.TextSize = self.isMobile and 16 or 18
+    titleLabel.TextSize = self:IsMobile() and 16 or 14
+    titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.TextYAlignment = Enum.TextYAlignment.Center
-    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    titleLabel.Parent = self.template
+    titleLabel.Parent = notificationFrame
+    
+    -- Title aspect ratio
+    local titleAspect = Instance.new("UIAspectRatioConstraint")
+    titleAspect.AspectRatio = 8.0
+    titleAspect.Parent = titleLabel
     
     -- Message label
     local messageLabel = Instance.new("TextLabel")
     messageLabel.Name = "Message"
+    messageLabel.Size = UDim2.new(0.7, -50, 0, 40)
+    messageLabel.Position = UDim2.new(0, 50, 0, 35)
     messageLabel.BackgroundTransparency = 1
-    messageLabel.Position = UDim2.new(0, 15, 0, 35)
-    messageLabel.Size = UDim2.new(1, -30, 1, -50)
-    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.Text = ""
     messageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    messageLabel.TextSize = self.isMobile and 14 or 16
-    messageLabel.TextWrapped = true
+    messageLabel.TextSize = self:IsMobile() and 14 or 12
+    messageLabel.Font = Enum.Font.Gotham
     messageLabel.TextXAlignment = Enum.TextXAlignment.Left
     messageLabel.TextYAlignment = Enum.TextYAlignment.Top
-    messageLabel.Parent = self.template
+    messageLabel.TextWrapped = true
+    messageLabel.Parent = notificationFrame
     
-    -- Close button (only show on PC)
+    -- Message aspect ratio
+    local messageAspect = Instance.new("UIAspectRatioConstraint")
+    messageAspect.AspectRatio = 4.0
+    messageAspect.Parent = messageLabel
+    
+    -- Close button
     local closeButton = Instance.new("TextButton")
     closeButton.Name = "CloseButton"
+    closeButton.Size = self:IsMobile() and UDim2.new(0, 40, 0, 40) or UDim2.new(0, 25, 0, 25)
+    closeButton.Position = UDim2.new(1, -35, 0, 5)
     closeButton.BackgroundTransparency = 1
-    closeButton.Position = UDim2.new(1, -25, 0, 5)
-    closeButton.Size = UDim2.new(0, 20, 0, 20)
-    closeButton.Font = Enum.Font.GothamBold
     closeButton.Text = "×"
     closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextSize = self.isMobile and 16 or 18
-    closeButton.Visible = not self.isMobile -- Hide on mobile
-    closeButton.Parent = self.template
+    closeButton.TextSize = self:IsMobile() and 24 or 18
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.Parent = notificationFrame
     
-    -- Progress bar for duration
+    -- Close button aspect ratio
+    local closeAspect = Instance.new("UIAspectRatioConstraint")
+    closeAspect.AspectRatio = 1.0
+    closeAspect.Parent = closeButton
+    
+    -- Progress bar for auto-dismiss
     local progressBar = Instance.new("Frame")
     progressBar.Name = "ProgressBar"
-    progressBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    progressBar.BorderSizePixel = 0
     progressBar.Size = UDim2.new(1, 0, 0, 3)
     progressBar.Position = UDim2.new(0, 0, 1, -3)
-    progressBar.AnchorPoint = Vector2.new(0, 1)
+    progressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressBar.BorderSizePixel = 0
+    progressBar.Visible = false
+    progressBar.Parent = notificationFrame
     
     local progressCorner = Instance.new("UICorner")
     progressCorner.CornerRadius = UDim.new(0, 2)
     progressCorner.Parent = progressBar
     
-    progressBar.Parent = self.template
-    
-    self.template.Parent = self.screenGui
-end
-
--- MISSING FUNCTION: Apply notification styles based on type
-function NotificationService:_applyNotificationStyle(notification, notificationType)
-    local styleMap = {
-        Info = {
-            BackgroundColor = Color3.fromRGB(45, 45, 45),
-            ProgressColor = Color3.fromRGB(0, 170, 255),
-            StrokeColor = Color3.fromRGB(100, 100, 100)
-        },
-        Success = {
-            BackgroundColor = Color3.fromRGB(40, 80, 40),
-            ProgressColor = Color3.fromRGB(0, 255, 0),
-            StrokeColor = Color3.fromRGB(100, 200, 100)
-        },
-        Warning = {
-            BackgroundColor = Color3.fromRGB(80, 80, 40),
-            ProgressColor = Color3.fromRGB(255, 255, 0),
-            StrokeColor = Color3.fromRGB(200, 200, 100)
-        },
-        Error = {
-            BackgroundColor = Color3.fromRGB(80, 40, 40),
-            ProgressColor = Color3.fromRGB(255, 0, 0),
-            StrokeColor = Color3.fromRGB(200, 100, 100)
-        },
-        Achievement = {
-            BackgroundColor = Color3.fromRGB(80, 40, 80),
-            ProgressColor = Color3.fromRGB(255, 0, 255),
-            StrokeColor = Color3.fromRGB(200, 100, 200)
-        }
+    return {
+        Frame = notificationFrame,
+        Icon = iconLabel,
+        Title = titleLabel,
+        Message = messageLabel,
+        CloseButton = closeButton,
+        ProgressBar = progressBar
     }
-    
-    local style = styleMap[notificationType] or styleMap.Info
-    
-    notification.BackgroundColor3 = style.BackgroundColor
-    notification.ProgressBar.BackgroundColor3 = style.ProgressColor
-    notification.UIStroke.Color = style.StrokeColor
 end
 
--- MISSING FUNCTION: Reposition existing notifications
-function NotificationService:_repositionNotifications(position)
-    local padding = self.isMobile and 10 or 20
-    local notificationHeight = self.isMobile and 100 or 120
-    local spacing = self.isMobile and 5 or 10
-    
-    local basePositionMap = {
-        TopLeft = UDim2.new(0, padding, 0, padding),
-        TopCenter = UDim2.new(0.5, -150, 0, padding),
-        TopRight = UDim2.new(1, -300 - padding, 0, padding),
-        BottomLeft = UDim2.new(0, padding, 1, -notificationHeight - padding),
-        BottomCenter = UDim2.new(0.5, -150, 1, -notificationHeight - padding),
-        BottomRight = UDim2.new(1, -300 - padding, 1, -notificationHeight - padding)
-    }
-    
-    local basePosition = basePositionMap[position] or basePositionMap.TopRight
-    
-    -- Reposition all notifications in the same position group
-    for i, notificationData in ipairs(self.notifications) do
-        if notificationData.data.position == position then
-            local notification = notificationData.instance
-            local offsetY = (i - 1) * (notificationHeight + spacing)
-            
-            if string.find(position, "Top") then
-                notification.Position = UDim2.new(
-                    basePosition.X.Scale,
-                    basePosition.X.Offset,
-                    basePosition.Y.Scale,
-                    basePosition.Y.Offset + offsetY
-                )
-            else -- Bottom positions
-                notification.Position = UDim2.new(
-                    basePosition.X.Scale,
-                    basePosition.X.Offset,
-                    basePosition.Y.Scale,
-                    basePosition.Y.Offset - offsetY
-                )
-            end
-        end
+-- Get notification from pool or create new one
+function NotificationModule:GetFromPool()
+    if #self.NotificationPool > 0 then
+        local notification = table.remove(self.NotificationPool)
+        notification.Frame.Visible = false
+        return notification
+    else
+        return self:CreateNotificationTemplate()
     end
 end
 
--- MISSING FUNCTION: Remove notification properly
-function NotificationService:_removeNotification(notification, callback)
-    -- Find and remove from notifications table
-    for i, notificationData in ipairs(self.notifications) do
-        if notificationData.instance == notification then
-            table.remove(self.notifications, i)
-            break
-        end
-    end
+-- Return notification to pool
+function NotificationModule:ReturnToPool(notification)
+    notification.Frame.Visible = false
+    notification.Frame.Parent = nil
     
-    -- Animate out
-    self:_animateOut(notification, function()
-        if notification and notification.Parent then
-            notification:Destroy()
-        end
-        
-        self.activeNotifications = math.max(0, self.activeNotifications - 1)
-        
-        -- Call callback if provided
-        if callback then
-            callback()
-        end
-        
-        -- Process queued notifications
-        self:_processQueue()
-        
-        -- Reposition remaining notifications
-        self:_repositionAllNotifications()
-    end)
+    -- Clean up tweens
+    for _, tween in pairs(notification.ActiveTweens or {}) do
+        tween:Cancel()
+    end
+    notification.ActiveTweens = {}
+    
+    table.insert(self.NotificationPool, notification)
 end
 
--- NEW FUNCTION: Animate out
-function NotificationService:_animateOut(notification, onComplete)
-    local tweenInfo = TweenInfo.new(
-        0.3,
-        Enum.EasingStyle.Quad,
-        Enum.EasingDirection.In
-    )
+-- Apply platform-specific layout
+function NotificationModule:ApplyPlatformLayout(notification)
+    local isMobile = self:IsMobile()
     
-    local goals = {}
-    
-    if self.config.animationStyle == "Slide" then
-        goals.Position = UDim2.new(
-            notification.Position.X.Scale,
-            notification.Position.X.Offset + 400,
-            notification.Position.Y.Scale,
-            notification.Position.Y.Offset
-        )
-    elseif self.config.animationStyle == "Fade" then
-        goals.BackgroundTransparency = 1
-        if notification:FindFirstChild("Title") then
-            goals.TitleTextTransparency = 1
-        end
-        if notification:FindFirstChild("Message") then
-            goals.MessageTextTransparency = 1
-        end
+    -- Update aspect ratios based on platform
+    local aspectRatio = notification.Frame:FindFirstChildOfClass("UIAspectRatioConstraint")
+    if aspectRatio then
+        aspectRatio.AspectRatio = isMobile and 2.2 or 4.375
     end
     
-    local tween = TweenService:Create(notification, tweenInfo, goals)
-    tween:Play()
-    
-    tween.Completed:Connect(function()
-        if onComplete then
-            onComplete()
-        end
-    end)
+    -- Update text sizes
+    notification.Title.TextSize = isMobile and 16 or 14
+    notification.Message.TextSize = isMobile and 14 or 12
+    notification.CloseButton.TextSize = isMobile and 24 or 18
+    notification.CloseButton.Size = isMobile and UDim2.new(0, 40, 0, 40) or UDim2.new(0, 25, 0, 25)
 end
 
--- NEW FUNCTION: Process queued notifications
-function NotificationService:_processQueue()
-    if #self.notificationQueue > 0 and self.activeNotifications < self.config.maxNotifications then
-        local nextNotification = table.remove(self.notificationQueue, 1)
-        self:_createNotification(nextNotification)
-    end
-end
-
--- NEW FUNCTION: Reposition all notifications
-function NotificationService:_repositionAllNotifications()
-    local positions = {"TopLeft", "TopCenter", "TopRight", "BottomLeft", "BottomCenter", "BottomRight"}
+-- Create and configure notification
+function NotificationModule:CreateNotification(data)
+    local notification = self:GetFromPool()
+    local theme = self.Themes[data.Type or "Info"] or self.Themes.Info
     
-    for _, position in ipairs(positions) do
-        self:_repositionNotifications(position)
-    end
-end
-
-function NotificationService:Notify(title, message, options)
-    local notificationData = {
-        title = title,
-        message = message,
-        duration = options and options.duration or self.config.duration,
-        position = options and options.position or self.config.position,
-        notificationType = options and options.notificationType or "Info",
-        callback = options and options.callback
-    }
+    -- Apply theme
+    notification.Frame.BackgroundColor3 = theme.BackgroundColor
+    notification.Icon.Text = theme.Icon
+    notification.Title.Text = data.Title or "Notification"
+    notification.Message.Text = data.Message or ""
+    notification.Title.TextColor3 = theme.TextColor
+    notification.Icon.TextColor3 = theme.TextColor
     
-    -- Queue notification if too many are active
-    if self.activeNotifications >= self.config.maxNotifications then
-        table.insert(self.notificationQueue, notificationData)
-        return
-    end
+    -- Apply platform-specific adjustments
+    self:ApplyPlatformLayout(notification)
     
-    self:_createNotification(notificationData)
-end
-
-function NotificationService:_createNotification(data)
-    self.activeNotifications += 1
-    
-    -- Clone template
-    local notification = self.template:Clone()
-    notification.Name = "Notification_" .. self.activeNotifications
-    notification.Parent = self.screenGui
-    notification.Visible = true
-    
-    -- Set content
-    notification.Title.Text = data.title
-    notification.Message.Text = data.message
-    
-    -- Set type-based styling
-    self:_applyNotificationStyle(notification, data.notificationType)
-    
-    -- Calculate responsive position
-    self:_setNotificationPosition(notification, data.position)
+    -- Store notification data
+    notification.Data = data
+    notification.ActiveTweens = {}
     
     -- Set up close button
     notification.CloseButton.MouseButton1Click:Connect(function()
-        self:_removeNotification(notification, data.callback)
+        self:DismissNotification(notification)
     end)
     
-    -- Mobile touch support
-    if self.isMobile then
-        self:_setupMobileTouch(notification, data.callback)
+    -- Set up touch events for mobile
+    if self:IsMobile() then
+        notification.Frame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                self:DismissNotification(notification)
+            end
+        end)
     end
     
-    -- Animate in
-    self:_animateIn(notification)
-    
-    -- Start timer and progress bar
-    self:_startNotificationTimer(notification, data.duration, data.callback)
-    
-    table.insert(self.notifications, {
-        instance = notification,
-        data = data
-    })
+    return notification
 end
 
-function NotificationService:_setNotificationPosition(notification, position)
-    local padding = self.isMobile and 10 or 20
-    local notificationHeight = self.isMobile and 100 or 120
+-- Calculate target position for notification
+function NotificationModule:CalculateTargetPosition(notification, index)
+    local container = self.ScreenGui:FindFirstChild("TopNotifications")
+    if not container then return UDim2.new(0.5, -150, 0, 10) end
     
-    local positionMap = {
-        TopLeft = UDim2.new(0, padding, 0, padding),
-        TopCenter = UDim2.new(0.5, -150, 0, padding),
-        TopRight = UDim2.new(1, -300 - padding, 0, padding),
-        BottomLeft = UDim2.new(0, padding, 1, -notificationHeight - padding),
-        BottomCenter = UDim2.new(0.5, -150, 1, -notificationHeight - padding),
-        BottomRight = UDim2.new(1, -300 - padding, 1, -notificationHeight - padding)
-    }
-    
-    notification.Position = positionMap[position] or positionMap.TopRight
-    notification.Size = UDim2.new(0, self.isMobile and 280 or 300, 0, notificationHeight)
-    
-    -- Adjust for existing notifications
-    self:_repositionNotifications(position)
+    local yOffset = (index or 1) * (notification.Frame.AbsoluteSize.Y + self.Config.Spacing)
+    return UDim2.new(0.5, -notification.Frame.AbsoluteSize.X / 2, 0, yOffset)
 end
 
-function NotificationService:_animateIn(notification)
-    local goalPosition = notification.Position
+-- Animate notification
+function NotificationModule:AnimateNotification(notification, show, callback)
+    local goal = {}
     
-    -- Start position based on animation style
-    if self.config.animationStyle == "Slide" then
-        notification.Position = UDim2.new(
-            goalPosition.X.Scale,
-            goalPosition.X.Offset + 400,
-            goalPosition.Y.Scale,
-            goalPosition.Y.Offset
-        )
-    elseif self.config.animationStyle == "Fade" then
-        notification.BackgroundTransparency = 1
-        notification.Title.TextTransparency = 1
-        notification.Message.TextTransparency = 1
+    if show then
+        goal.Position = self:CalculateTargetPosition(notification, #self.ActiveNotifications + 1)
+        goal.Size = UDim2.new(0, self:IsMobile() and 280 or 350, 0, self:IsMobile() and 100 or 80)
+    else
+        goal.Position = UDim2.new(0.5, -75, -0.5, 0)
+        goal.Size = UDim2.new(0, 0, 0, 0)
     end
     
-    -- Animate in
     local tweenInfo = TweenInfo.new(
-        0.3,
+        self.Config.AnimationDuration,
         Enum.EasingStyle.Quad,
         Enum.EasingDirection.Out
     )
     
-    local goals = {}
+    local tween = TweenService:Create(notification.Frame, tweenInfo, goal)
+    table.insert(notification.ActiveTweens, tween)
     
-    if self.config.animationStyle == "Slide" then
-        goals.Position = goalPosition
-    elseif self.config.animationStyle == "Fade" then
-        goals.BackgroundTransparency = 0
-        goals.TitleTextTransparency = 0
-        goals.MessageTextTransparency = 0
+    tween:Play()
+    tween.Completed:Connect(function()
+        if callback then
+            callback()
+        end
+    end)
+    
+    return tween
+end
+
+-- Animate progress bar
+function NotificationModule:AnimateProgressBar(notification, duration)
+    if not notification.Data.Duration or notification.Data.Duration == 0 then
+        return
     end
     
-    local tween = TweenService:Create(notification, tweenInfo, goals)
+    notification.ProgressBar.Visible = true
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(notification.ProgressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 3)})
+    table.insert(notification.ActiveTweens, tween)
     tween:Play()
 end
 
-function NotificationService:_startNotificationTimer(notification, duration, callback)
-    local progressBar = notification.ProgressBar
+-- Display notification
+function NotificationModule:DisplayNotification(notification)
+    local container = self.ScreenGui:FindFirstChild("TopNotifications")
+    if not container then return end
     
-    -- Progress bar animation
-    local progressTween = TweenService:Create(
-        progressBar,
-        TweenInfo.new(duration, Enum.EasingStyle.Linear),
-        {Size = UDim2.new(0, 0, 0, 3)}
-    )
-    progressTween:Play()
+    notification.Frame.Parent = container
+    notification.Frame.Visible = true
+    notification.Frame.LayoutOrder = #self.ActiveNotifications + 1
     
-    -- Auto-remove after duration
-    task.delay(duration, function()
-        if notification and notification.Parent then
-            self:_removeNotification(notification, callback)
-        end
-    end)
-end
-
-function NotificationService:_setupMobileTouch(notification, callback)
-    local touchStartTime = 0
-    local touchStartPosition = nil
+    -- Initial state for entrance animation
+    notification.Frame.Position = UDim2.new(0.5, -75, -0.5, 0)
+    notification.Frame.Size = UDim2.new(0, 0, 0, 0)
     
-    notification.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            touchStartTime = tick()
-            touchStartPosition = input.Position
-        end
-    end)
-    
-    notification.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local touchDuration = tick() - touchStartTime
+    -- Animate entrance
+    self:AnimateNotification(notification, true, function()
+        table.insert(self.ActiveNotifications, notification)
+        
+        -- Start auto-dismiss timer if duration is set
+        local duration = notification.Data.Duration or self.Config.DefaultDuration
+        if duration > 0 then
+            self:AnimateProgressBar(notification, duration)
             
-            -- Tap (short press) - trigger callback
-            if touchDuration < 0.5 then
-                if callback then
-                    callback()
+            task.delay(duration, function()
+                if table.find(self.ActiveNotifications, notification) then
+                    self:DismissNotification(notification)
                 end
-            -- Long press - dismiss notification
-            else
-                self:_removeNotification(notification)
-            end
+            end)
         end
     end)
 end
 
--- NEW FUNCTION: Clear all notifications
-function NotificationService:ClearAll()
-    for i = #self.notifications, 1, -1 do
-        local notificationData = self.notifications[i]
-        if notificationData.instance then
-            notificationData.instance:Destroy()
+-- Dismiss notification
+function NotificationModule:DismissNotification(notification)
+    local index = table.find(self.ActiveNotifications, notification)
+    if index then
+        table.remove(self.ActiveNotifications, index)
+        
+        self:AnimateNotification(notification, false, function()
+            self:ReturnToPool(notification)
+            self:ProcessQueue()
+        end)
+    end
+end
+
+-- Dismiss oldest notification
+function NotificationModule:DismissOldest()
+    if #self.ActiveNotifications > 0 then
+        self:DismissNotification(self.ActiveNotifications[1])
+    end
+end
+
+-- Process notification queue
+function NotificationModule:ProcessQueue()
+    while #self.ActiveNotifications >= self.Config.MaxNotifications do
+        self:DismissOldest()
+    end
+    
+    if #self.Queue > 0 and #self.ActiveNotifications < self.Config.MaxNotifications then
+        local notificationData = table.remove(self.Queue, 1)
+        local notification = self:CreateNotification(notificationData)
+        self:DisplayNotification(notification)
+    end
+end
+
+-- Main function to show notification
+function NotificationModule:ShowNotification(data)
+    -- Validate data
+    if not data or (not data.Title and not data.Message) then
+        warn("NotificationModule: Invalid notification data")
+        return
+    end
+    
+    -- Add to queue
+    table.insert(self.Queue, data)
+    self:ProcessQueue()
+end
+
+-- Convenience methods for different notification types
+function NotificationModule:Success(title, message, duration)
+    self:ShowNotification({
+        Title = title,
+        Message = message,
+        Type = "Success",
+        Duration = duration or self.Config.DefaultDuration
+    })
+end
+
+function NotificationModule:Error(title, message, duration)
+    self:ShowNotification({
+        Title = title,
+        Message = message,
+        Type = "Error", 
+        Duration = duration or self.Config.DefaultDuration
+    })
+end
+
+function NotificationModule:Warning(title, message, duration)
+    self:ShowNotification({
+        Title = title,
+        Message = message,
+        Type = "Warning",
+        Duration = duration or self.Config.DefaultDuration
+    })
+end
+
+function NotificationModule:Info(title, message, duration)
+    self:ShowNotification({
+        Title = title,
+        Message = message,
+        Type = "Info",
+        Duration = duration or self.Config.DefaultDuration
+    })
+end
+
+-- Cleanup method
+function NotificationModule:Cleanup()
+    for _, notification in ipairs(self.ActiveNotifications) do
+        self:ReturnToPool(notification)
+    end
+    
+    for _, notification in ipairs(self.NotificationPool) do
+        if notification.Frame then
+            notification.Frame:Destroy()
         end
     end
     
-    self.notifications = {}
-    self.notificationQueue = {}
-    self.activeNotifications = 0
+    if self.ScreenGui then
+        self.ScreenGui:Destroy()
+        self.ScreenGui = nil
+    end
+    
+    self.ActiveNotifications = {}
+    self.Queue = {}
+    self.NotificationPool = {}
 end
 
--- NEW FUNCTION: Destroy the entire notification system
-function NotificationService:Destroy()
-    self:ClearAll()
-    if self.screenGui then
-        self.screenGui:Destroy()
+-- Update configuration
+function NotificationModule:UpdateConfig(newConfig)
+    for key, value in pairs(newConfig) do
+        if self.Config[key] ~= nil then
+            self.Config[key] = value
+        end
     end
 end
 
-return NotificationService -- FIXED: Return correct module name
+-- Auto-initialize when required
+task.spawn(function()
+    NotificationModule:Initialize()
+end)
+
+return NotificationModule
