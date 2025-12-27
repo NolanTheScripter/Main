@@ -1589,7 +1589,17 @@ function UILibrary:CreateWindow(config)
 			window.uiScale.Scale = scale
 		end
 		
-		updateScale()-- ============================================
+		updateScale()
+
+  workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+	end
+	
+	table.insert(self.windows, window)
+	return window
+end
+
+
+-- ============================================
 -- NOTIFICATION SYSTEM
 -- ============================================
 
@@ -2029,10 +2039,3 @@ function UILibrary:CreateLoadingScreen(config)
 end
 
 return UILibrary
-		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
-	end
-	
-	table.insert(self.windows, window)
-	return window
-end
-
