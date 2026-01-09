@@ -259,24 +259,4 @@ function NotificationLibrary:Destroy()
     self.queue = {}
 end
 
--- Example Usage
-local Notifications = NotificationLibrary.new()
-
--- Test notifications
-task.wait(1)
-Notifications:Success("Welcome!", "Notification system loaded successfully")
-
-task.wait(2)
-Notifications:Info("Information", "This is an informational notification with some longer text to demonstrate wrapping")
-
-task.wait(2)
-Notifications:Warning("Warning", "This is a warning notification")
-
-task.wait(2)
-Notifications:Error("Error", "Something went wrong!")
-
--- Custom notification
-task.wait(2)
-Notifications:Notify("Custom", "You can customize the duration and type", "success", 10)
-
 return Notifications
