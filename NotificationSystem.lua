@@ -259,4 +259,6 @@ function NotificationLibrary:Destroy()
     self.queue = {}
 end
 
+function NotificationLibrary.new()
+
 return Notifications
