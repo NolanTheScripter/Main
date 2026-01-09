@@ -1,4 +1,4 @@
--- HealthBarModule.lua
+
 -- A comprehensive health bar system for Roblox characters
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
