@@ -1,292 +1,280 @@
-local DropdownCategories = {}
-local module = {}
-
--- Services
 local TweenService = game:GetService("TweenService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
--- Dropdown class
-local Dropdown = {}
-Dropdown.__index = Dropdown
+local SmoothDropdown = {}
+SmoothDropdown.__index = SmoothDropdown
 
-function Dropdown.new(title, options, defaultOption, callback)
-    local self = setmetatable({}, Dropdown)
-    
-    self.title = title
-    self.options = options or {}
-    self.defaultOption = defaultOption or options[1] or "None"
-    self.callback = callback
-    self.isOpen = false
-    self.refreshConnection = nil
-    self.playerAddedConn = nil
-    self.playerRemovedConn = nil
-    
-    self:CreateUI()
-    
-    return self
+function SmoothDropdown.new(parent, options)
+	local self = setmetatable({}, SmoothDropdown)
+	
+	self.options = options or {"Option 1", "Option 2", "Option 3"}
+	self.isOpen = false
+	self.selectedIndex = 1
+	self.onSelect = nil
+	
+	-- Main container
+	self.container = Instance.new("Frame")
+	self.container.Size = UDim2.new(0, 200, 0, 40)
+	self.container.Position = UDim2.new(0.5, -100, 0.5, -20)
+	self.container.BackgroundTransparency = 1
+	self.container.Parent = parent
+	
+	-- Dropdown header
+	self.header = Instance.new("TextButton")
+	self.header.Size = UDim2.new(1, 0, 0, 40)
+	self.header.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+	self.header.BorderSizePixel = 0
+	self.header.Font = Enum.Font.GothamBold
+	self.header.TextSize = 14
+	self.header.TextColor3 = Color3.fromRGB(255, 255, 255)
+	self.header.Text = self.options[self.selectedIndex]
+	self.header.TextXAlignment = Enum.TextXAlignment.Left
+	self.header.TextTruncate = Enum.TextTruncate.AtEnd
+	self.header.Parent = self.container
+	
+	local headerPadding = Instance.new("UIPadding")
+	headerPadding.PaddingLeft = UDim.new(0, 15)
+	headerPadding.PaddingRight = UDim.new(0, 35)
+	headerPadding.Parent = self.header
+	
+	local headerCorner = Instance.new("UICorner")
+	headerCorner.CornerRadius = UDim.new(0, 8)
+	headerCorner.Parent = self.header
+	
+	-- Arrow icon
+	self.arrow = Instance.new("TextLabel")
+	self.arrow.Size = UDim2.new(0, 20, 0, 20)
+	self.arrow.Position = UDim2.new(1, -30, 0.5, -10)
+	self.arrow.BackgroundTransparency = 1
+	self.arrow.Text = "â–¼"
+	self.arrow.TextSize = 12
+	self.arrow.TextColor3 = Color3.fromRGB(200, 200, 200)
+	self.arrow.Font = Enum.Font.GothamBold
+	self.arrow.Parent = self.header
+	
+	-- Dropdown list container
+	self.listContainer = Instance.new("Frame")
+	self.listContainer.Size = UDim2.new(1, 0, 0, 0)
+	self.listContainer.Position = UDim2.new(0, 0, 0, 45)
+	self.listContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	self.listContainer.BorderSizePixel = 0
+	self.listContainer.ClipsDescendants = true
+	self.listContainer.Visible = false
+	self.listContainer.Parent = self.container
+	
+	local listCorner = Instance.new("UICorner")
+	listCorner.CornerRadius = UDim.new(0, 8)
+	listCorner.Parent = self.listContainer
+	
+	-- List layout
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 2)
+	listLayout.Parent = self.listContainer
+	
+	local listPadding = Instance.new("UIPadding")
+	listPadding.PaddingTop = UDim.new(0, 5)
+	listPadding.PaddingBottom = UDim.new(0, 5)
+	listPadding.Parent = self.listContainer
+	
+	-- Create option buttons
+	self.optionButtons = {}
+	for i, option in ipairs(self.options) do
+		local optionBtn = Instance.new("TextButton")
+		optionBtn.Size = UDim2.new(1, 0, 0, 35)
+		optionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		optionBtn.BorderSizePixel = 0
+		optionBtn.Font = Enum.Font.Gotham
+		optionBtn.TextSize = 13
+		optionBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+		optionBtn.Text = option
+		optionBtn.TextXAlignment = Enum.TextXAlignment.Left
+		optionBtn.AutoButtonColor = false
+		optionBtn.LayoutOrder = i
+		optionBtn.Parent = self.listContainer
+		
+		local btnPadding = Instance.new("UIPadding")
+		btnPadding.PaddingLeft = UDim.new(0, 15)
+		btnPadding.PaddingRight = UDim.new(0, 15)
+		btnPadding.Parent = optionBtn
+		
+		-- Hover effect
+		optionBtn.MouseEnter:Connect(function()
+			TweenService:Create(optionBtn, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+			}):Play()
+		end)
+		
+		optionBtn.MouseLeave:Connect(function()
+			TweenService:Create(optionBtn, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+			}):Play()
+		end)
+		
+		-- Selection
+		optionBtn.MouseButton1Click:Connect(function()
+			self:selectOption(i)
+		end)
+		
+		table.insert(self.optionButtons, optionBtn)
+	end
+	
+	-- Header click to toggle
+	self.header.MouseButton1Click:Connect(function()
+		self:toggle()
+	end)
+	
+	-- Header hover effect
+	self.header.MouseEnter:Connect(function()
+		TweenService:Create(self.header, TweenInfo.new(0.2), {
+			BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+		}):Play()
+	end)
+	
+	self.header.MouseLeave:Connect(function()
+		TweenService:Create(self.header, TweenInfo.new(0.2), {
+			BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+		}):Play()
+	end)
+	
+	return self
 end
 
-function Dropdown:Refresh(newOptions, autoRefresh)
-    if self.refreshConnection then
-        self.refreshConnection:Disconnect()
-        self.refreshConnection = nil
-    end
-
-    if newOptions then
-        self.options = newOptions
-    end
-
-    if autoRefresh then
-        self.refreshConnection = RunService.Heartbeat:Connect(function()
-            self:UpdateOptions(self.options)
-        end)
-    else
-        self:UpdateOptions(self.options)
-    end
+function SmoothDropdown:toggle()
+	if self.isOpen then
+		self:close()
+	else
+		self:open()
+	end
 end
 
-function Dropdown:UpdateOptions(options)
-    for _, child in ipairs(self.scrollFrame:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-
-    self.options = options or self.options
-
-    for i, opt in ipairs(self.options) do
-        local btn = Instance.new("TextButton")
-        btn.Name = opt
-        btn.Size = UDim2.new(1, 0, 0, 28)
-        btn.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-        btn.TextColor3 = Color3.fromRGB(240, 240, 240)
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 13
-        btn.Text = opt
-        btn.TextTruncate = Enum.TextTruncate.AtEnd
-        btn.BorderSizePixel = 0
-        btn.AutoButtonColor = false
-        btn.LayoutOrder = i
-        btn.Parent = self.scrollFrame
-        
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 4)
-        btnCorner.Parent = btn
-
-        btn.MouseEnter:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        end)
-        
-        btn.MouseLeave:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-        end)
-
-        btn.MouseButton1Click:Connect(function()
-            self.selected = opt
-            self.mainButton.Text = self.selected
-            
-            local tween = TweenService:Create(
-                self.listFrame,
-                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Size = UDim2.new(1, -10, 0, 0)}
-            )
-            tween:Play()
-            self.isOpen = false
-            
-            if self.callback then
-                self.callback(opt)
-            end
-        end)
-    end
-
-    local totalHeight = #self.options * 28 + (#self.options-1)*2
-    self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-    self.openSize = UDim2.new(1, -10, 0, math.min(totalHeight, 150))
+function SmoothDropdown:open()
+	if self.isOpen then return end
+	self.isOpen = true
+	
+	local targetHeight = #self.options * 35 + 12
+	
+	self.listContainer.Visible = true
+	
+	-- Animate dropdown open
+	TweenService:Create(self.listContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(1, 0, 0, targetHeight)
+	}):Play()
+	
+	-- Rotate arrow
+	TweenService:Create(self.arrow, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Rotation = 180
+	}):Play()
+	
+	-- Fade in options
+	for i, btn in ipairs(self.optionButtons) do
+		btn.BackgroundTransparency = 1
+		btn.TextTransparency = 1
+		
+		task.wait(0.03)
+		
+		TweenService:Create(btn, TweenInfo.new(0.2), {
+			BackgroundTransparency = 0,
+			TextTransparency = 0
+		}):Play()
+	end
 end
 
-function Dropdown:CreateUI()
-    if game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("MobileDropdownUI") then
-        game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui").MobileDropdownUI:Destroy()
-    end
-
-    self.screenGui = Instance.new("ScreenGui")
-    self.screenGui.Name = "MobileDropdownUI"
-    self.screenGui.ResetOnSpawn = false
-    self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    self.screenGui.Parent = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-
-    self.dropdown = Instance.new("Frame")
-    self.dropdown.Name = "Dropdown"
-    self.dropdown.Size = UDim2.new(0.25, 0, 0, 50)
-    self.dropdown.AnchorPoint = Vector2.new(0.5, 0.5)
-    self.dropdown.Position = UDim2.new(0.5, 0, 0.3, 0)
-    self.dropdown.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    self.dropdown.BorderSizePixel = 0
-    self.dropdown.Parent = self.screenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = self.dropdown
-
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -10, 0.4, 0)
-    titleLabel.Position = UDim2.new(0, 5, 0, 2)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = self.title
-    titleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    titleLabel.Font = Enum.Font.Gotham
-    titleLabel.TextSize = 12
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = self.dropdown
-
-    self.mainButton = Instance.new("TextButton")
-    self.mainButton.Size = UDim2.new(1, -10, 0.5, 0)
-    self.mainButton.Position = UDim2.new(0, 5, 0.45, 0)
-    self.mainButton.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-    self.mainButton.TextColor3 = Color3.fromRGB(240, 240, 240)
-    self.mainButton.Font = Enum.Font.Gotham
-    self.mainButton.TextSize = 14
-    self.mainButton.Text = self.defaultOption
-    self.mainButton.TextTruncate = Enum.TextTruncate.AtEnd
-    self.mainButton.BorderSizePixel = 0
-    self.mainButton.AutoButtonColor = false
-    self.mainButton.Parent = self.dropdown
-    
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 4)
-    mainCorner.Parent = self.mainButton
-
-    self.mainButton.MouseEnter:Connect(function()
-        self.mainButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    end)
-    
-    self.mainButton.MouseLeave:Connect(function()
-        self.mainButton.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-    end)
-
-    self.listFrame = Instance.new("Frame")
-    self.listFrame.Position = UDim2.new(0, 5, 1, 2)
-    self.listFrame.Size = UDim2.new(1, -10, 0, 0)
-    self.listFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    self.listFrame.BorderSizePixel = 0
-    self.listFrame.ClipsDescendants = true
-    self.listFrame.Parent = self.dropdown
-    
-    local listCorner = Instance.new("UICorner")
-    listCorner.CornerRadius = UDim.new(0, 4)
-    listCorner.Parent = self.listFrame
-
-    self.scrollFrame = Instance.new("ScrollingFrame")
-    self.scrollFrame.Size = UDim2.new(1, 0, 1, 0)
-    self.scrollFrame.BackgroundTransparency = 1
-    self.scrollFrame.ScrollBarThickness = 4
-    self.scrollFrame.Parent = self.listFrame
-
-    local layout = Instance.new("UIListLayout", self.scrollFrame)
-    layout.Padding = UDim.new(0, 2)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    self:UpdateOptions(self.options)
-
-    self.mainButton.MouseButton1Click:Connect(function()
-        if self.isOpen then
-            local tween = TweenService:Create(
-                self.listFrame,
-                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Size = UDim2.new(1, -10, 0, 0)}
-            )
-            tween:Play()
-        else
-            local tween = TweenService:Create(
-                self.listFrame,
-                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Size = self.openSize}
-            )
-            tween:Play()
-        end
-        self.isOpen = not self.isOpen
-    end)
-
-    self.inputBeganConnection = UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local absolutePos = self.dropdown.AbsolutePosition
-            local absoluteSize = self.dropdown.AbsoluteSize
-            
-            local isOutside = not (
-                input.Position.X >= absolutePos.X and
-                input.Position.X <= absolutePos.X + absoluteSize.X and
-                input.Position.Y >= absolutePos.Y and
-                input.Position.Y <= absolutePos.Y + absoluteSize.Y + self.openSize.Y.Offset
-            )
-            
-            if isOutside and self.isOpen then
-                self.isOpen = false
-                local tween = TweenService:Create(
-                    self.listFrame,
-                    TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {Size = UDim2.new(1, -10, 0, 0)}
-                )
-                tween:Play()
-            end
-        end
-    end)
+function SmoothDropdown:close()
+	if not self.isOpen then return end
+	self.isOpen = false
+	
+	-- Animate dropdown close
+	TweenService:Create(self.listContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Size = UDim2.new(1, 0, 0, 0)
+	}):Play()
+	
+	-- Rotate arrow back
+	TweenService:Create(self.arrow, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Rotation = 0
+	}):Play()
+	
+	task.wait(0.2)
+	self.listContainer.Visible = false
 end
 
-function Dropdown:Destroy()
-    if self.refreshConnection then
-        self.refreshConnection:Disconnect()
-    end
-    if self.inputBeganConnection then
-        self.inputBeganConnection:Disconnect()
-    end
-    if self.playerAddedConn then
-        self.playerAddedConn:Disconnect()
-    end
-    if self.playerRemovedConn then
-        self.playerRemovedConn:Disconnect()
-    end
-    if self.screenGui then
-        self.screenGui:Destroy()
-    end
+function SmoothDropdown:selectOption(index)
+	if index < 1 or index > #self.options then return end
+	
+	self.selectedIndex = index
+	self.header.Text = self.options[index]
+	
+	-- Flash effect on selection
+	TweenService:Create(self.header, TweenInfo.new(0.1), {
+		BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+	}):Play()
+	
+	task.wait(0.1)
+	
+	TweenService:Create(self.header, TweenInfo.new(0.15), {
+		BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+	}):Play()
+	
+	self:close()
+	
+	if self.onSelect then
+		self.onSelect(index, self.options[index])
+	end
 end
 
--- PlayerList dropdown creator
-function DropdownCategories.PlayerList(callback)
-    local playerNames = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        table.insert(playerNames, player.Name)
-    end
-    
-    local dropdown = Dropdown.new("Players", playerNames, playerNames[1], callback)
-    
-    -- Auto-update when players join/leave
-    dropdown.playerAddedConn = Players.PlayerAdded:Connect(function(player)
-        table.insert(playerNames, player.Name)
-        dropdown:Refresh(playerNames, false)
-    end)
-    
-    dropdown.playerRemovedConn = Players.PlayerRemoving:Connect(function(player)
-        for i, name in ipairs(playerNames) do
-            if name == player.Name then
-                table.remove(playerNames, i)
-                break
-            end
-        end
-        dropdown:Refresh(playerNames, false)
-    end)
-    
-    return dropdown
+function SmoothDropdown:setOptions(newOptions)
+	self.options = newOptions
+	
+	-- Clear existing buttons
+	for _, btn in ipairs(self.optionButtons) do
+		btn:Destroy()
+	end
+	self.optionButtons = {}
+	
+	-- Recreate buttons
+	for i, option in ipairs(self.options) do
+		local optionBtn = Instance.new("TextButton")
+		optionBtn.Size = UDim2.new(1, 0, 0, 35)
+		optionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+		optionBtn.BorderSizePixel = 0
+		optionBtn.Font = Enum.Font.Gotham
+		optionBtn.TextSize = 13
+		optionBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+		optionBtn.Text = option
+		optionBtn.TextXAlignment = Enum.TextXAlignment.Left
+		optionBtn.AutoButtonColor = false
+		optionBtn.LayoutOrder = i
+		optionBtn.Parent = self.listContainer
+		
+		local btnPadding = Instance.new("UIPadding")
+		btnPadding.PaddingLeft = UDim.new(0, 15)
+		btnPadding.PaddingRight = UDim.new(0, 15)
+		btnPadding.Parent = optionBtn
+		
+		optionBtn.MouseEnter:Connect(function()
+			TweenService:Create(optionBtn, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+			}):Play()
+		end)
+		
+		optionBtn.MouseLeave:Connect(function()
+			TweenService:Create(optionBtn, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+			}):Play()
+		end)
+		
+		optionBtn.MouseButton1Click:Connect(function()
+			self:selectOption(i)
+		end)
+		
+		table.insert(self.optionButtons, optionBtn)
+	end
+	
+	self.selectedIndex = 1
+	self.header.Text = self.options[1]
 end
 
--- Main module functions
-function module.new(title, options, defaultOption, callback)
-    return Dropdown.new(title, options, defaultOption, callback)
+function SmoothDropdown:destroy()
+	self.container:Destroy()
 end
 
-function module.PlayerList(callback)
-    return DropdownCategories.PlayerList(callback)
-end
-
-return module
+return SmoothDropdown
